@@ -9,12 +9,12 @@
 
 | | |
 |---|---|
-| **Milestone atual** | M1 — Render e sprites |
+| **Milestone atual** | M2 — Pools e colisão |
 | **Última atualização** | 2026-09-03 |
 | **Build roda?** | ✅ `npm run build` limpo |
 | **FPS medido (throttle 6×, wave 20)** | — (sem waves ainda) |
-| **Cobertura `core/` + `data/`** | 40 testes verdes |
-| **Bundle gzip** | 3,6 KB / meta 180 KB |
+| **Cobertura `core/` + `data/`** | 50 testes verdes |
+| **Bundle gzip** | 9,0 KB / meta 180 KB |
 | **Testado em celular real** | ⬜ (validado headless em 412×915 @2x) |
 
 ### Legenda
@@ -27,7 +27,7 @@
 | Milestone | Objetivo | Entregável verificável | Status |
 |-----------|----------|------------------------|--------|
 | **M0** | Fundação | Canvas escalando, loop fixo, input, overlay de debug | ✅ |
-| **M1** | Render + sprites | Torre e um inimigo desenhados **só com placeholders** | ⬜ |
+| **M1** | Render + sprites | Torre e um inimigo desenhados **só com placeholders** | ✅ |
 | **M2** | Pools + colisão | 400 inimigos andando a 60 FPS, spatial hash testado | ⬜ |
 | **M3** | Combate | Torre atira, acerta, mata, drops aparecem | ⬜ |
 | **M4** | **VERTICAL SLICE** | Run completa: waves → upgrades → cartas → morte → resultado | ⬜ |
@@ -92,25 +92,60 @@
 
 **Objetivo:** o contrato de sprites (SPEC §13) funcionando **antes** de existir qualquer arte. Este milestone é o que garante que arte entra depois sem retrabalho.
 
-- [ ] `src/render/spriteKeys.manual.ts`: união de keys declaradas à mão
-- [ ] `src/render/spriteKeys.gen.ts`: stub que reexporta a manual enquanto não há atlas
-- [ ] `src/render/atlas.ts`: parse do JSON de atlas (frames, pivot, trim), seleção `@2x` por dpr
-- [ ] `src/render/assetRegistry.ts`: manifest, `createImageBitmap` com fallback, progresso, **falha nunca quebra o jogo**
-- [ ] `src/render/placeholders.ts`: `registerPlaceholder(pattern, fn)` com match por prefixo `*`; helpers `poly`, `tri`, `circle`, `rect`, `cross`
-- [ ] Placeholders da torre (base, canhão, núcleo) e dos 9 arquétipos, com silhueta e cor de SPEC §5.1
-- [ ] `src/render/drawSprite.ts`: resolução atlas → placeholder → magenta + warn único
-- [ ] `src/render/digitAtlas.ts`: dígitos e sufixos pré-renderizados em canvas offscreen
-- [ ] `src/render/layers.ts`: ordem chão → sombras → pickups → inimigos (sort por Y) → torre → projéteis → VFX → números
-- [ ] `src/render/renderer.ts`: `render(alpha)` com interpolação `prev→cur`; `setTransform` em vez de `save/restore`
-- [ ] Chão pré-renderizado uma vez em canvas offscreen (grid + vinheta) e blitado
-- [ ] `tools/pack-atlas.mjs`: PNGs → atlas (maxrects, padding 2, trim) + `spriteKeys.gen.ts`
-- [ ] **Verificação:** rodar com `assets/atlas/` ausente → tudo desenha via placeholder, sem erro
-- [ ] **Verificação:** colocar 1 PNG de teste, rodar `npm run atlas`, ver o sprite substituir o placeholder **sem mudar código**
+- [x] `src/render/spriteKeys.manual.ts`: união de keys declaradas à mão
+- [x] `src/render/spriteKeys.gen.ts`: stub que reexporta a manual enquanto não há atlas
+- [x] `src/render/atlas.ts`: parse do JSON de atlas (frames, pivot, trim), seleção `@2x` por dpr
+- [x] `src/render/assetRegistry.ts`: manifest, `createImageBitmap` com fallback, progresso, **falha nunca quebra o jogo**
+- [x] `src/render/placeholders.ts`: `registerPlaceholder(pattern, fn)` com match por prefixo `*`; helpers `poly`, `tri`, `circle`, `rect`, `cross`
+- [x] Placeholders da torre (base, canhão, núcleo) e dos 9 arquétipos, com silhueta e cor de SPEC §5.1
+- [x] `src/render/drawSprite.ts`: resolução atlas → placeholder → magenta + warn único
+- [x] `src/render/digitAtlas.ts`: dígitos e sufixos pré-renderizados em canvas offscreen
+- [x] `src/render/layers.ts`: ordem chão → sombras → pickups → inimigos (sort por Y) → torre → projéteis → VFX → números
+- [x] `src/render/renderer.ts`: `render(alpha)` com interpolação `prev→cur`; `setTransform` em vez de `save/restore`
+- [x] Chão pré-renderizado uma vez em canvas offscreen (grid + vinheta) e blitado
+- [x] `tools/pack-atlas.mjs`: PNGs → atlas (maxrects, padding 2, trim) + `spriteKeys.gen.ts`
+- [x] **Verificação:** rodar com `assets/atlas/` ausente → tudo desenha via placeholder, sem erro
+- [x] **Verificação:** colocar 1 PNG de teste, rodar `npm run atlas`, ver o sprite substituir o placeholder **sem mudar código**
 
-**Critério de aceite:** torre + 3 inimigos parados na tela, todos procedurais, distinguíveis à primeira vista. Um PNG solto na pasta substitui qualquer um deles.
+**Critério de aceite:** torre + 3 inimigos parados na tela, todos procedurais, distinguíveis à primeira vista. Um PNG solto na pasta substitui qualquer um deles. ✅ — 9 arquétipos + 3 bosses + projéteis + pickups na tela de demonstração.
 
 **Notas:**
 ```
+- DECISÃO IMPORTANTE: placeholders são RASTERIZADOS uma vez em canvas offscreen
+  (2 px por unidade de mundo) e daí em diante são blitados. Consequência: o
+  caminho "sem arte" custa exatamente o mesmo que o caminho "com arte" — nenhum
+  path vetorial roda dentro do frame. Também gera de graça a máscara branca
+  usada no hit-flash (composite source-in), que serve para atlas e placeholder.
+- drawSprite guarda a matriz mundo→device como 6 números e compõe o TRS local à
+  mão, num único setTransform por sprite. Nada de save()/restore() (SPEC §16.4).
+- Atlas resolvido por import.meta.glob em vez de fetch às cegas: sem arte no
+  repo, um fetch cego loga 404 no console todo boot e a DoD exige console limpo.
+  Sem atlas empacotado, nem sai requisição.
+- tools/png.mjs: codec PNG escrito à mão sobre node:zlib (decode dos 5 color
+  types de 8 bits + encode RGBA). Evita `sharp` (30 MB nativo) só para mover
+  bytes. Round-trip verificado.
+- tools/pack-atlas.mjs usa shelf packing, não MaxRects: para algumas centenas de
+  sprites parecidos a diferença é de poucos %, e o código cabe numa tela.
+  Rever se o atlas parar de caber em 2048.
+- VERIFICADO ponta a ponta: gerei um PNG rosa em assets/src/enemy/grunt/walk_00,
+  rodei npm run atlas → spriteKeys.gen.ts regenerado, sprite substituiu o
+  placeholder na tela SEM UMA LINHA de código alterada. Depois removi e voltou
+  ao placeholder. O contrato do SPEC §13 está de pé.
+- Contrato virou TESTE, não convenção: tests/render/spriteContract.test.ts falha
+  se aparecer drawImage fora dos arquivos permitidos, path vetorial em
+  systems/entities, DOM em core/data, shadowBlur/filter em qualquer lugar, ou
+  uma spriteKey declarada sem placeholder.
+- Y-sort é counting sort em 96 baldes (~13 u cada), O(n) e zero alocação. Sort
+  por comparação alocaria closure por frame.
+- Otimização: só as barras do letterbox são limpas por frame; o blit do chão
+  cobre o resto. Economiza um fill de tela cheia por frame.
+- PERF (headless, Chromium sem GPU, 412×915 @2x): JS = 0,42 ms sim + 1,04 ms
+  render por frame. O FPS medido (60 sem throttle, ~17 com throttle 6×) é
+  limitado pela rasterização por software do ambiente headless, não pelo nosso
+  código — com dpr 1 o mesmo teste dá 49 FPS a 6×, ou seja, custo puro de fill
+  rate. Num aparelho real o canvas é composto pela GPU. O número que importa
+  aqui é o 1,5 ms de JS, dentro do orçamento de 12 ms (SPEC §16.2).
+- assets/atlas/ está vazio de propósito. É o estado suportado.
 ```
 
 ---

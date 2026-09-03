@@ -13,8 +13,12 @@ import { extname, join, normalize } from 'node:path';
 
 const seconds = Number(process.argv[2] ?? 6);
 const outPng = process.argv[3] ?? 'scratch/smoke.png';
-const throttleArg = process.argv.find((a) => a.startsWith('--throttle='));
-const throttle = throttleArg ? Number(throttleArg.split('=')[1]) : 1;
+const flag = (name, dflt) => {
+  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
+  return hit === undefined ? dflt : Number(hit.split('=')[1]);
+};
+const throttle = flag('throttle', 1);
+const dpr = flag('dpr', 2);
 const dir = 'dist';
 const MIME = {
   '.html': 'text/html',
@@ -47,7 +51,7 @@ const browser = await chromium.launch(
 );
 const page = await browser.newPage({
   viewport: { width: 412, height: 915 },
-  deviceScaleFactor: 2,
+  deviceScaleFactor: dpr,
   hasTouch: true,
   isMobile: true,
 });

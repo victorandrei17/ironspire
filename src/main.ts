@@ -3,7 +3,11 @@ import { Viewport } from './render/viewport.ts';
 import { Input } from './platform/input.ts';
 import { Lifecycle } from './platform/lifecycle.ts';
 import { DebugOverlay } from './debug/overlay.ts';
-import { VW, VH, TOWER_X, TOWER_Y, R_TOWER_BODY } from './core/constants.ts';
+import { Renderer } from './render/renderer.ts';
+import { AssetRegistry } from './render/assetRegistry.ts';
+import { missingSpriteKeys } from './render/drawSprite.ts';
+import { buildDemoWorld, animateDemoWorld } from './debug/demoScene.ts';
+import { FIXED_DT } from './core/constants.ts';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui') as HTMLDivElement;
@@ -14,9 +18,9 @@ const ctx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2
 const viewport = new Viewport(canvas);
 const input = new Input(viewport);
 const overlay = new DebugOverlay(uiRoot);
-
-let lastTapX = 0;
-let lastTapY = 0;
+const renderer = new Renderer(ctx, viewport);
+const assets = new AssetRegistry();
+const world = buildDemoWorld();
 
 function resize(): void {
   viewport.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
@@ -40,21 +44,26 @@ const lifecycle = new Lifecycle({
 });
 lifecycle.attach();
 
-const debugLines: string[] = ['', ''];
+// The atlas is optional by contract: if it is absent the placeholders carry the
+// whole game (SPEC §13.6). Nothing below waits on this promise.
+void assets.load('game', viewport.dpr);
+
+let elapsed = 0;
+const debugLines: string[] = ['', '', ''];
 
 function simulate(dt: number): void {
-  input.flush(dt, (type, _id, wx, wy) => {
-    if (type === 0) {
-      lastTapX = wx;
-      lastTapY = wy;
-    }
-  });
+  input.flush(dt);
   if (input.fourFingerTap) {
     input.fourFingerTap = false;
     overlay.toggle();
   }
-  debugLines[0] = `tap ${lastTapX.toFixed(0)}, ${lastTapY.toFixed(0)}`;
-  debugLines[1] = `vp ${viewport.cssW}x${viewport.cssH} dpr ${viewport.dpr} s ${viewport.scale.toFixed(3)}`;
+  elapsed += dt;
+  animateDemoWorld(world, elapsed);
+
+  debugLines[0] = `atlas ${assets.loaded ? 'loaded' : 'absent → placeholders'}`;
+  debugLines[1] = `enemies ${world.enemies.count} · vp ${viewport.cssW}x${viewport.cssH} @${viewport.dpr}`;
+  const missing = missingSpriteKeys();
+  debugLines[2] = missing.length === 0 ? 'sprites ok' : `MISSING ${missing.length}`;
   overlay.update(dt, {
     fps: loop.fps,
     simMs: loop.simMs,
@@ -64,43 +73,8 @@ function simulate(dt: number): void {
   });
 }
 
-function render(_alpha: number): void {
-  const { pixelW, pixelH, scale, offsetX, offsetY, dpr } = viewport;
-
-  // Letterbox bars.
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = '#05070a';
-  ctx.fillRect(0, 0, pixelW, pixelH);
-
-  // World transform: virtual units → device pixels, in one setTransform.
-  const s = scale * dpr;
-  ctx.setTransform(s, 0, 0, s, offsetX * dpr, offsetY * dpr);
-
-  ctx.fillStyle = '#0b0d12';
-  ctx.fillRect(0, 0, VW, VH);
-
-  ctx.strokeStyle = '#141a24';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let x = 0; x <= VW; x += 60) {
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, VH);
-  }
-  for (let y = 0; y <= VH; y += 60) {
-    ctx.moveTo(0, y);
-    ctx.lineTo(VW, y);
-  }
-  ctx.stroke();
-
-  ctx.fillStyle = '#3a4a63';
-  ctx.beginPath();
-  ctx.arc(TOWER_X, TOWER_Y, R_TOWER_BODY, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = '#7fd4a8';
-  ctx.beginPath();
-  ctx.arc(lastTapX, lastTapY, 6, 0, Math.PI * 2);
-  ctx.fill();
+function render(alpha: number): void {
+  renderer.render(world, alpha);
 }
 
 const loop = new GameLoop(simulate, render);
@@ -110,3 +84,25 @@ function frame(now: number): void {
   loop.frame(now);
 }
 requestAnimationFrame(frame);
+
+// Exposed for the headless smoke test only.
+(globalThis as unknown as { ironSpire: unknown }).ironSpire = {
+  get fps(): number {
+    return Math.round(loop.fps);
+  },
+  get missingSprites(): string[] {
+    return missingSpriteKeys();
+  },
+  get atlasLoaded(): boolean {
+    return assets.loaded;
+  },
+  get simSteps(): number {
+    return Math.round(elapsed / FIXED_DT);
+  },
+  get simMs(): number {
+    return Number(loop.simMs.toFixed(2));
+  },
+  get renderMs(): number {
+    return Number(loop.renderMs.toFixed(2));
+  },
+};
