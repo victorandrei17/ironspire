@@ -929,3 +929,160 @@ body.lefty .abilities {
   background: rgba(127, 212, 168, 0.24);
   border-color: var(--accent);
 }
+
+/* --- Toast, hints, error --------------------------------------------------- */
+
+.toast {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--safe-t) + 72px);
+  transform: translateX(-50%);
+  z-index: 30;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(21, 26, 35, 0.94);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  font-size: 0.76rem;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: toast-in 200ms ease-out;
+}
+
+.hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-b) + 200px);
+  transform: translateX(-50%);
+  z-index: 15;
+  max-width: 88vw;
+  padding: 9px 16px;
+  border-radius: 12px;
+  background: rgba(127, 212, 168, 0.14);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 0.8rem;
+  text-align: center;
+  pointer-events: none;
+  animation: toast-in 220ms ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.error-overlay {
+  z-index: 200;
+  background: rgba(10, 4, 6, 0.96);
+}
+
+.error-body {
+  font-size: 0.88rem;
+  color: var(--ink-dim);
+  text-align: center;
+  max-width: 90vw;
+}
+
+.error-detail {
+  max-width: min(520px, 92vw);
+  max-height: 32vh;
+  overflow: auto;
+  margin: 6px 0 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #0a0d13;
+  border: 1px solid var(--line);
+  color: #ff9d94;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.64rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  -webkit-user-select: text;
+  user-select: text;
+  text-align: left;
+}
+
+.slider {
+  flex: 0 0 auto;
+  width: 140px;
+  accent-color: var(--accent);
+  background: none;
+  border: none;
+}
+
+/* ===========================================================================
+   Boot screen — markup in index.html so the FIRST painted frame is the game's
+   own, not a white flash while the bundle downloads and parses.
+   =========================================================================== */
+
+#boot {
+  position: absolute;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-content: center;
+  gap: 18px;
+  justify-items: center;
+  background: var(--bg);
+  transition: opacity 220ms ease-out;
+}
+
+#boot.gone {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.boot-mark {
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: 0.28em;
+  color: var(--ink);
+  text-shadow: 0 0 28px rgba(127, 212, 168, 0.3);
+}
+
+.boot-track {
+  width: min(220px, 60vw);
+  height: 4px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.boot-fill {
+  height: 100%;
+  width: 30%;
+  border-radius: 999px;
+  background: var(--accent);
+  animation: boot-slide 1s ease-in-out infinite;
+}
+
+@keyframes boot-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(333%);
+  }
+}
+
+/* Scene fade. One element over everything, driven by a class. */
+#fade {
+  position: absolute;
+  inset: 0;
+  z-index: 250;
+  background: var(--bg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease-out;
+}
+
+#fade.on {
+  opacity: 1;
+}

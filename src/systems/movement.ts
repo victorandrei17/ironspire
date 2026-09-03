@@ -137,6 +137,9 @@ export function integratePickups(
 
     pk.x[i] = (pk.x[i] ?? 0) + (pk.vx[i] ?? 0) * dt;
     pk.y[i] = (pk.y[i] ?? 0) + (pk.vy[i] ?? 0) * dt;
+    // Grow into full size over the pop-out arc.
+    const sc = pk.scale[i] ?? 1;
+    if (sc < 1) pk.scale[i] = Math.min(1, sc + dt * 4);
     const life = (pk.life[i] ?? 0) - dt;
     if (life <= 0) pk.free(i);
     else pk.life[i] = life;

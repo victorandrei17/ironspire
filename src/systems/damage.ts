@@ -248,11 +248,15 @@ function spawnDrops(
   const goldTotal = gold * run.waveGoldBonus * world.tower.stats.get(ST.GoldMult);
   if (goldTotal > 0) {
     const a = rng.angle();
-    world.pickups.spawn(x, y, Math.cos(a) * 70, Math.sin(a) * 70, 0, goldTotal, 0);
+    const i = world.pickups.spawn(x, y, Math.cos(a) * 70, Math.sin(a) * 70, 0, goldTotal, 0);
+    // Pops out at half size and grows: reads as loot being ejected rather than
+    // a sprite blinking into existence.
+    if (i >= 0) world.pickups.scale[i] = 0.5;
   }
   if (xp > 0) {
     const a = rng.angle();
-    world.pickups.spawn(x, y, Math.cos(a) * 70, Math.sin(a) * 70, 1, xp, 1);
+    const i = world.pickups.spawn(x, y, Math.cos(a) * 70, Math.sin(a) * 70, 1, xp, 1);
+    if (i >= 0) world.pickups.scale[i] = 0.5;
   }
 }
 

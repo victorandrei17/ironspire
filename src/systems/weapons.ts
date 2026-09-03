@@ -4,6 +4,7 @@ import { BAL } from '../data/balance.ts';
 import { PROJ_SPRITE_BOLT } from '../entities/world.ts';
 import { PF } from '../entities/projectilePool.ts';
 import { bus, EV } from '../core/events.ts';
+import { SFX } from '../data/audio.ts';
 
 /**
  * Fire control (SPEC §12.3 step 7).
@@ -74,7 +75,7 @@ function fire(world: World, aim: number): void {
     world.projectiles.pierce[i] = pierce;
     world.projectiles.chain[i] = (stats.flags & TF.Chain) !== 0 ? stats.chainJumps : 0;
   }
-  bus.emit(EV.Sfx, 0);
+  bus.emit(EV.Sfx, SFX.Shoot);
 }
 
 function buildFlags(towerFlags: number, marked: boolean): number {

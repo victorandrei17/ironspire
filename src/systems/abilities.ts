@@ -4,6 +4,7 @@ import { ST } from '../data/stats.ts';
 import { DMG_TARGET_ENEMY, DMG_FLAG } from '../core/damageQueue.ts';
 import { ENEMY_CAP } from '../core/constants.ts';
 import { bus, EV } from '../core/events.ts';
+import { SFX } from '../data/audio.ts';
 
 /**
  * Active abilities (SPEC §12.3 step 9).
@@ -108,7 +109,7 @@ export class AbilitySystem {
         // Fury is entirely a stat effect; syncFury applies it next tick.
         break;
     }
-    bus.emit(EV.Sfx, 1, id);
+    bus.emit(EV.Sfx, SFX.Ability, id);
     return true;
   }
 

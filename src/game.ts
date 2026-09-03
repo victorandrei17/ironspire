@@ -70,11 +70,23 @@ import { TalentTree } from './ui/talentTree.ts';
 import { OfflineScreen } from './ui/offlineScreen.ts';
 import { OptionsScreen, applyUiScale } from './ui/options.ts';
 import { AbilityBar } from './ui/abilityBar.ts';
-import { setHapticsEnabled } from './platform/haptics.ts';
-import { setLanguage } from './data/strings.ts';
+import { ErrorOverlay } from './ui/errorOverlay.ts';
+import { Transition } from './ui/transition.ts';
+import { Toast } from './ui/toast.ts';
+import { Tutorial, HINT_UPGRADES, HINT_CARDS, HINT_NEXT_WAVE } from './ui/tutorial.ts';
+import { QualitySystem, QUALITY, type QualityLevel } from './systems/quality.ts';
+import { setHapticsEnabled, setTapListener } from './platform/haptics.ts';
+import { setLanguage, t } from './data/strings.ts';
+import { AudioSystem } from './platform/audio.ts';
+import { SFX, SFX_VOICES } from './data/audio.ts';
 import { UpgradePanel } from './ui/upgradePanel.ts';
 import { CardPicker } from './ui/cardPicker.ts';
 import { MainMenu, PauseScreen, ResultScreen, TopBar, type RunResult } from './ui/menus.ts';
+
+function clampQuality(v: number): QualityLevel {
+  const n = Math.round(v);
+  return (n < 0 ? 0 : n > 2 ? 2 : n) as QualityLevel;
+}
 
 /**
  * The app root: owns the scene machine, the systems, and the UI (SPEC §12.6).
@@ -97,6 +109,8 @@ export class Game {
   private readonly camera: CameraSystem;
   private readonly boss = new BossSystem();
   private readonly abilities = new AbilitySystem();
+  private readonly audio = new AudioSystem(SFX_VOICES);
+  private readonly quality = new QualitySystem();
   private readonly spawner = new Spawner();
   private readonly waves = new WaveSystem();
   private readonly offer = new CardOffer();
@@ -121,6 +135,10 @@ export class Game {
   private readonly offlineScreen: OfflineScreen;
   private readonly options: OptionsScreen;
   private readonly abilityBar: AbilityBar;
+  private readonly errorOverlay: ErrorOverlay;
+  private readonly transition: Transition;
+  private readonly toast: Toast;
+  private readonly tutorial: Tutorial;
   /** Set while the options screen is open, so it can return to where it came from. */
   private optionsReturn: Scene = SCENE.Menu;
 
@@ -189,11 +207,41 @@ export class Game {
     );
     this.topBar = new TopBar(uiRoot, () => this.setScene(SCENE.Pause));
     this.abilityBar = new AbilityBar(uiRoot, (id) => this.abilities.cast(this.world, id));
+    this.transition = new Transition(uiRoot);
+    this.toast = new Toast(uiRoot);
+    this.tutorial = new Tutorial(
+      uiRoot,
+      (id) => this.saves.save.meta.unlocks.includes(id),
+      (id) => {
+        this.saves.save.meta.unlocks.push(id);
+        this.saves.touch();
+      },
+    );
+    // Last, so it paints over everything if the worst happens.
+    this.errorOverlay = new ErrorOverlay(uiRoot);
 
     this.loop = new GameLoop(
       (dt) => this.simulate(dt),
       (alpha) => this.render(alpha),
     );
+
+    // Systems announce; this is the only place that turns an announcement into
+    // a sound, so no system needs to know audio exists.
+    bus.on(EV.Sfx, (id) => this.audio.play(id));
+    bus.on(EV.EnemyKilled, () => this.audio.play(SFX.EnemyDeath));
+    bus.on(EV.TowerDamaged, () => this.audio.play(SFX.TowerHit));
+    bus.on(EV.GoldChanged, () => this.audio.play(SFX.Pickup));
+    bus.on(EV.LevelUp, () => {
+      this.audio.play(SFX.LevelUp);
+      bus.emit(EV.Shake, 0.35);
+      this.levelUpFx.trigger();
+    });
+    bus.on(EV.UpgradeBought, () => this.audio.play(SFX.Purchase));
+    bus.on(EV.BossSpawned, () => {
+      this.audio.play(SFX.BossSpawn);
+      this.audio.duckMusic(true);
+    });
+    bus.on(EV.BossKilled, () => this.audio.duckMusic(false));
 
     bus.on(EV.WaveStart, (wave, pattern) => this.hud.banner(pattern, wave));
     bus.on(EV.BossSpawned, (idx) => {
@@ -223,6 +271,16 @@ export class Game {
     this.input.attach(this.canvas);
     this.overlay.attachKeyboard();
 
+    // iOS will not start an AudioContext outside a real gesture, so the unlock
+    // rides on the first touch anywhere.
+    this.audio.init();
+    setTapListener(() => this.audio.play(SFX.UiTap));
+    const unlock = (): void => {
+      this.audio.unlock();
+      window.removeEventListener('pointerdown', unlock);
+    };
+    window.addEventListener('pointerdown', unlock);
+
     new Lifecycle({
       onPause: () => {
         this.input.clearActive();
@@ -238,9 +296,20 @@ export class Game {
     // The atlas is optional by contract: absent means placeholders (SPEC §13.6).
     void this.assets.load('game', this.viewport.dpr);
 
+    this.errorOverlay.install(() => JSON.stringify(this.diagnostics));
+
+    let prevNow = -1;
+    let firstFrame = true;
     const frame = (now: number): void => {
       requestAnimationFrame(frame);
+      if (prevNow >= 0) this.quality.sample(Math.min((now - prevNow) / 1000, 0.25));
+      prevNow = now;
+      if (this.quality.changed) this.onQualityChanged();
       this.loop.frame(now);
+      if (firstFrame) {
+        firstFrame = false;
+        this.transition.dismissBoot();
+      }
     };
     requestAnimationFrame(frame);
   }
@@ -272,12 +341,17 @@ export class Game {
     this.pause.setVisible(next === SCENE.Pause);
     this.result.setVisible(next === SCENE.Result);
     // Pause and the card screen freeze the simulation entirely; the level-up
-    // slow-mo is the only partial time scale (SPEC §7.3).
+    // slow-mo is the only partial time scale, and `simulate` reasserts it every
+    // tick, so setting 1 here is just the resume value.
     this.loop.timeScale = inRun ? 1 : 0;
     bus.emit(EV.SceneChanged, next);
   }
 
   private startRun(): void {
+    this.transition.run(() => this.beginRun());
+  }
+
+  private beginRun(): void {
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
     const mods = this.world.tower.mods;
     this.rng.state = seed;
@@ -334,7 +408,7 @@ export class Game {
       died,
     };
     this.result.render(res);
-    this.setScene(SCENE.Result);
+    this.transition.run(() => this.setScene(SCENE.Result));
     bus.emit(EV.RunEnded, res.wave, res.cores, died ? 1 : 0);
   }
 
@@ -347,15 +421,27 @@ export class Game {
     this.setScene(this.optionsReturn);
   }
 
+  private onQualityChanged(): void {
+    this.world.particles.share = this.quality.particleShare;
+    if (this.quality.level < QUALITY.High) this.toast.show(t('quality.reduced'));
+    this.saves.save.prefs.particleLevel = this.quality.level;
+    this.saves.touch();
+  }
+
   /** Pushes preference changes into the systems that read them. */
   private onPrefsChanged(): void {
     const prefs = this.saves.save.prefs;
     setHapticsEnabled(prefs.haptics);
+    this.audio.setVolumes(prefs.sfx, prefs.music);
     // Reduce-shake scales the whole effect rather than disabling it, so the
     // feedback survives for players who only need it toned down (SPEC §11.4).
     this.camera.intensity = prefs.reduceShake ? 0.25 : 1;
     applyUiScale(prefs.uiScale);
     setLanguage(prefs.lang);
+    // Start from the level this device settled on last time, so a weak phone
+    // does not spend the first ten seconds of every session stuttering.
+    this.quality.reset(clampQuality(prefs.particleLevel));
+    this.world.particles.share = this.quality.particleShare;
     this.view.flashScale = prefs.reduceFlash ? 0.3 : 1;
     document.body.classList.toggle('lefty', prefs.lefty);
     this.saves.touch();
@@ -510,6 +596,9 @@ export class Game {
 
     this.run.time += dt;
     this.levelUpFx.update(dt);
+    // Level-up hit-stop: time crawls for a beat before the card screen
+    // (SPEC §7.3). Applied to the loop, not to individual systems.
+    this.loop.timeScale = this.levelUpFx.timeScale;
 
     this.waves.update(this.world, this.run, this.spawner, dt);
     this.ai.update(
@@ -559,10 +648,18 @@ export class Game {
     this.run.waveMax = Math.max(this.run.waveMax, this.run.wave);
 
     this.saves.update(dt);
+    this.audio.flush();
 
     // UI last: it reads the settled state of this tick.
+    this.toast.update(dt);
+    this.tutorial.update(dt);
     this.panel.update(dt);
     this.panel.setNextWave(this.waves.canCallEarly, BAL.wave.earlyCallGoldBonus);
+    if (this.waves.canCallEarly) this.tutorial.trigger(HINT_NEXT_WAVE);
+    if (this.run.gold >= 20) this.tutorial.trigger(HINT_UPGRADES);
+    if (this.run.level >= 1 && this.run.xp > this.run.xpToNext * 0.5) {
+      this.tutorial.trigger(HINT_CARDS);
+    }
     this.abilityBar.update(this.abilities);
     this.hud.update(this.run, this.world, dt);
 
@@ -607,6 +704,8 @@ export class Game {
       kills: this.run.kills,
       enemies: this.world.enemies.liveCount,
       atlasLoaded: this.assets.loaded ? 1 : 0,
+      audio: this.audio.available ? 1 : 0,
+      quality: this.quality.level,
       cores: this.saves.save.meta.nucleos,
       bestWave: this.saves.save.stats.bestWaveEver,
       localOnly: this.saves.localOnly ? 1 : 0,

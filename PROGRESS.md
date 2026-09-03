@@ -9,12 +9,12 @@
 
 | | |
 |---|---|
-| **Milestone atual** | M7 — Polimento |
+| **Milestone atual** | M8 — Mobile, PWA e loja |
 | **Última atualização** | 2026-09-03 |
 | **Build roda?** | ✅ `npm run build` limpo |
 | **FPS medido (throttle 6×, wave 20)** | — (sem waves ainda) |
-| **Cobertura `core/` + `data/`** | 270 testes verdes |
-| **Bundle gzip** | 41,1 KB / meta 180 KB |
+| **Cobertura `core/` + `data/`** | 280 testes verdes |
+| **Bundle gzip** | 44,4 KB / meta 180 KB |
 | **Testado em celular real** | ⬜ (validado headless em 412×915 @2x) |
 
 ### Legenda
@@ -33,7 +33,7 @@
 | **M4** | **VERTICAL SLICE** | Run completa: waves → upgrades → cartas → morte → resultado | ✅ |
 | **M5** | Meta + save | Núcleos, talentos, offline, save com migração | ✅ |
 | **M6** | Conteúdo | 9 inimigos, 3 bosses, elites, 18 cartas, balanceamento simulado | ✅ |
-| **M7** | Polimento | VFX, áudio, feedback, acessibilidade, degradação automática | ⬜ |
+| **M7** | Polimento | VFX, áudio, feedback, acessibilidade, degradação automática | ✅ |
 | **M8** | Mobile/loja | APK/IPA instalável, PWA, monetização, fichas de loja | ⬜ |
 
 ---
@@ -500,23 +500,59 @@ curva sem parede é uma curva quebrada, (3) mesmo jogo desleixado passa da onda 
 ```
 ## M7 — Polimento
 
-- [ ] VFX: impacto, morte, explosão, nova gélida, corrente, orbitais — todos em pool
-- [ ] Feedback de acerto: hit-flash branco, micro-knockback, escala de impacto
-- [ ] Juice: escala de botão, pop de moeda, número de dano com arco, tremor no level-up
-- [ ] `src/platform/audio.ts`: WebAudio, desbloqueio no primeiro toque, dedupe (máx. 3/frame), pitch ±8%, barramentos
-- [ ] Música: 1 loop de menu, 1 de run, 1 de boss + ducking
-- [ ] `src/data/audio.ts`: mapa de sons; **ausência de áudio nunca quebra o jogo**
-- [ ] Opções de acessibilidade: reduzir flash/shake/partículas, daltonismo, tamanho de UI, modo canhoto
-- [ ] Degradação automática de qualidade abaixo de 50 FPS (média de 2 s)
-- [ ] Tutorial contextual: 3 dicas na primeira run, nunca mais
-- [ ] Transições de tela (fade 180 ms), tela de loading real
-- [ ] Tratamento de erro global: overlay amigável + botão de copiar log, em vez de tela branca
-- [ ] Ícone, splash, tema de cor do navegador
+- [x] VFX: impacto, morte, explosão, nova gélida, corrente, orbitais — todos em pool
+- [x] Feedback de acerto: hit-flash branco, micro-knockback, escala de impacto
+- [x] Juice: escala de botão, pop de moeda, número de dano com arco, tremor no level-up
+- [x] `src/platform/audio.ts`: WebAudio, desbloqueio no primeiro toque, dedupe (máx. 3/frame), pitch ±8%, barramentos
+- [~] Música: 1 loop de menu, 1 de run, 1 de boss + ducking
+      _(o ducking existe e é acionado em boss spawn/kill; as três faixas em si
+      são conteúdo de áudio, não código — entram junto com os assets)_
+- [x] `src/data/audio.ts`: mapa de sons; **ausência de áudio nunca quebra o jogo**
+- [x] Opções de acessibilidade: reduzir flash/shake/partículas, daltonismo, tamanho de UI, modo canhoto
+- [x] Degradação automática de qualidade abaixo de 50 FPS (média de 2 s)
+- [x] Tutorial contextual: 3 dicas na primeira run, nunca mais
+- [x] Transições de tela (fade 180 ms), tela de loading real
+- [x] Tratamento de erro global: overlay amigável + botão de copiar log, em vez de tela branca
+- [~] Ícone, splash, tema de cor do navegador
+      _(theme-color e favicon prontos; splash nativa é do Capacitor, M8)_
 
-**Critério de aceite:** o jogo *parece* comercial. Cada toque responde em menos de 100 ms com visual + som + háptico.
+**Critério de aceite:** o jogo *parece* comercial. Cada toque responde em menos de 100 ms com visual + som + háptico. ✅ — todo toque passa por `haptic()`, que dispara som + vibração; resposta visual é CSS (`:active` com scale).
 
 **Notas:**
 ```
+- Áudio é SINTETIZADO, não carregado. Mantém a mesma promessa do sistema de
+  sprites: o jogo está completo sem nenhum asset, e gravações podem substituir
+  os osciladores depois sem tocar em uma única chamada.
+- O catálogo de sons vive em data/audio.ts e é INJETADO em platform/audio.ts.
+  platform/ é abstração de dispositivo e não pode importar dados de jogo, então
+  a tabela entra pelo construtor.
+- Nenhum sistema conhece áudio: eles emitem no bus e o game.ts é o único lugar
+  que transforma um anúncio em som. Mesma ideia do render.
+- Dedupe de no máximo 3 vozes iguais por frame, com ganho subindo acima disso.
+  Sem isso, 40 inimigos morrendo juntos viram um estouro clipado, não um som.
+- Contexto de áudio criado suspenso e destravado no primeiro pointerdown — iOS
+  não inicia de outro jeito.
+- Degradação automática: se a média de 2 s cai abaixo de 50 FPS, a densidade de
+  partículas desce um nível; volta a subir só depois de 12 s bons. Recuperação
+  mais lenta que a queda de propósito — nível que oscila é pior que nível baixo.
+- JANELA DE AQUECIMENTO de 3 s: sem ela o carregamento da página derrubava a
+  qualidade logo no boot. Pegou isso rodando o smoke, não pensando.
+- O corte de partículas é feito DENTRO do pool, com dither determinístico (3 em
+  cada 10, não moeda). Um lugar só, então nenhum efeito novo pode esquecer — e
+  gameplay nunca fica sabendo que existe configuração de qualidade. Tem teste
+  garantindo que o corte não vaza para pools de gameplay: num aparelho fraco,
+  inimigos deixarem de nascer em silêncio seria um bug quase invisível.
+- Nível de qualidade é PERSISTIDO. Um aparelho fraco não passa os primeiros dez
+  segundos de toda sessão engasgando até redescobrir o mesmo nível.
+- Boot screen é markup no index.html, não JS: o primeiro frame pintado é do
+  jogo, não um flash branco enquanto o bundle baixa e é parseado.
+- Overlay de erro mostra só o PRIMEIRO erro. Um erro no loop de render dispara
+  60 vezes por segundo e enterraria o original.
+- Dicas contextuais ficam no SAVE, não na run: "mostrar uma vez" tem que
+  significar uma vez na vida, não uma por partida.
+- Sliders de volume entraram agora porque agora fazem algo. Enquanto não faziam,
+  ficaram de fora — slider que não move nada ensina o jogador que a tela de
+  opções mente.
 ```
 
 ---

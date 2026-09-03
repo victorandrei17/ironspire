@@ -17,6 +17,7 @@ export class OptionsScreen {
     key: 'haptics' | 'reduceFlash' | 'reduceShake' | 'lefty';
     node: HTMLButtonElement;
   }[] = [];
+  private readonly sliders: { key: 'sfx' | 'music'; node: HTMLInputElement }[] = [];
   private readonly scaleBtns: HTMLButtonElement[] = [];
   private readonly codeBox: HTMLTextAreaElement;
   private readonly statusEl: HTMLDivElement;
@@ -35,6 +36,8 @@ export class OptionsScreen {
     title.textContent = t('options.title');
 
     const list = el('div', 'option-list', this.root);
+    this.addSlider(list, 'sfx', t('options.sfx'));
+    this.addSlider(list, 'music', t('options.music'));
     this.addToggle(list, 'haptics', t('options.haptics'));
     this.addToggle(list, 'reduceFlash', t('options.reduceFlash'));
     this.addToggle(list, 'reduceShake', t('options.reduceShake'));
@@ -89,6 +92,23 @@ export class OptionsScreen {
     });
   }
 
+  private addSlider(parent: HTMLElement, key: 'sfx' | 'music', label: string): void {
+    const row = el('div', 'option-row', parent);
+    const l = el('span', 'option-label', row);
+    l.textContent = label;
+    const input = el('input', 'slider interactive', row);
+    input.type = 'range';
+    input.min = '0';
+    input.max = '100';
+    input.step = '5';
+    // `input`, not `change`: the player should hear the level while dragging.
+    input.addEventListener('input', () => {
+      this.getPrefs()[key] = Number(input.value) / 100;
+      this.onChanged();
+    });
+    this.sliders.push({ key, node: input });
+  }
+
   private addToggle(
     parent: HTMLElement,
     key: 'haptics' | 'reduceFlash' | 'reduceShake' | 'lefty',
@@ -110,6 +130,10 @@ export class OptionsScreen {
 
   refresh(): void {
     const prefs = this.getPrefs();
+    for (const s of this.sliders) {
+      const value = String(Math.round(prefs[s.key] * 100));
+      if (s.node.value !== value) s.node.value = value;
+    }
     for (const toggle of this.toggles) {
       const on = prefs[toggle.key];
       setText(toggle.node, on ? t('options.on') : t('options.off'));

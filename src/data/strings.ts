@@ -48,6 +48,8 @@ export const STRINGS_PT = {
   'talents.max': 'MÁX',
 
   'options.title': 'OPÇÕES',
+  'options.sfx': 'Efeitos',
+  'options.music': 'Música',
   'options.haptics': 'Vibração',
   'options.reduceFlash': 'Reduzir flashes',
   'options.reduceShake': 'Reduzir tremor',
@@ -66,6 +68,18 @@ export const STRINGS_PT = {
   'offline.away': 'Você esteve fora',
   'offline.claim': 'COLETAR',
   'offline.capped': 'Limite de acúmulo atingido',
+
+  'error.title': 'ALGO QUEBROU',
+  'error.body': 'O jogo encontrou um erro. Seu progresso está salvo.',
+  'error.copy': 'COPIAR RELATÓRIO',
+  'error.copied': 'Copiado.',
+  'error.reload': 'RECARREGAR',
+
+  'quality.reduced': 'Qualidade reduzida para manter a fluidez',
+
+  'tutorial.upgrades': 'Toque para comprar. Segure para comprar em sequência.',
+  'tutorial.cards': 'Suba de nível para escolher uma carta.',
+  'tutorial.nextWave': 'Chame a próxima onda mais cedo para ganhar ouro extra.',
 } as const;
 
 export type StringKey = keyof typeof STRINGS_PT;
@@ -117,6 +131,8 @@ export const STRINGS_EN: Partial<Record<StringKey, string>> = {
   'talents.max': 'MAX',
 
   'options.title': 'OPTIONS',
+  'options.sfx': 'Sound effects',
+  'options.music': 'Music',
   'options.haptics': 'Haptics',
   'options.reduceFlash': 'Reduce flashes',
   'options.reduceShake': 'Reduce shake',
@@ -135,6 +151,18 @@ export const STRINGS_EN: Partial<Record<StringKey, string>> = {
   'offline.away': 'You were away for',
   'offline.claim': 'CLAIM',
   'offline.capped': 'Offline cap reached',
+
+  'error.title': 'SOMETHING BROKE',
+  'error.body': 'The game hit an error. Your progress is saved.',
+  'error.copy': 'COPY REPORT',
+  'error.copied': 'Copied.',
+  'error.reload': 'RELOAD',
+
+  'quality.reduced': 'Quality reduced to keep things smooth',
+
+  'tutorial.upgrades': 'Tap to buy. Hold to keep buying.',
+  'tutorial.cards': 'Level up to pick a card.',
+  'tutorial.nextWave': 'Call the next wave early for bonus gold.',
 };
 
 let table: Partial<Record<StringKey, string>> = STRINGS_PT;

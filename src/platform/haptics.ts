@@ -21,7 +21,15 @@ export function setHapticsEnabled(on: boolean): void {
   enabled = on;
 }
 
+/** Set by the game so a tap can click as well as buzz, without ui/ knowing. */
+let onTap: ((kind: HapticKind) => void) | null = null;
+
+export function setTapListener(fn: (kind: HapticKind) => void): void {
+  onTap = fn;
+}
+
 export function haptic(kind: HapticKind): void {
+  onTap?.(kind);
   if (!enabled) return;
   const nav = navigator as Navigator & { vibrate?: (pattern: number | number[]) => boolean };
   if (typeof nav.vibrate !== 'function') return;

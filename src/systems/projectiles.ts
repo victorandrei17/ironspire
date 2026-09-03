@@ -8,6 +8,9 @@ import { isPhasedOut } from './ai.ts';
 
 const MAX_CANDIDATES = 96;
 
+/** World units an enemy is shoved on a hit. Cosmetic, deliberately tiny. */
+const HIT_KNOCKBACK = 2.2;
+
 /**
  * Projectile flight and impact (SPEC §12.3 step 8).
  *
@@ -145,6 +148,17 @@ export class ProjectileSystem {
       p.prevY[i] ?? 0,
     );
     spawnImpact(world, hx, hy);
+
+    // Micro-knockback along the shot. Small enough not to matter to pathing,
+    // large enough that a hit reads as an impact rather than a number
+    // appearing out of nowhere. Bosses are immovable.
+    if (((e.flags[j] ?? 0) & EF.Boss) === 0) {
+      const vx = p.vx[i] ?? 0;
+      const vy = p.vy[i] ?? 0;
+      const m = Math.sqrt(vx * vx + vy * vy) || 1;
+      e.x[j] = (e.x[j] ?? 0) + (vx / m) * HIT_KNOCKBACK;
+      e.y[j] = (e.y[j] ?? 0) + (vy / m) * HIT_KNOCKBACK;
+    }
 
     if (flags & PF.Explosive && stats.flags & TF.Explosive) {
       this.explode(world, e.x[j] ?? hx, e.y[j] ?? hy, damage * stats.explosivePct, e.handle(j));
