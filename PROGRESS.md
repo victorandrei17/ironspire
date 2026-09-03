@@ -9,12 +9,12 @@
 
 | | |
 |---|---|
-| **Milestone atual** | M8 — Mobile, PWA e loja |
+| **Milestone atual** | M8 — código pronto; build nativo e loja bloqueados por ambiente |
 | **Última atualização** | 2026-09-03 |
 | **Build roda?** | ✅ `npm run build` limpo |
 | **FPS medido (throttle 6×, wave 20)** | — (sem waves ainda) |
-| **Cobertura `core/` + `data/`** | 280 testes verdes |
-| **Bundle gzip** | 44,4 KB / meta 180 KB |
+| **Cobertura `core/` + `data/`** | 287 testes verdes |
+| **Bundle gzip** | 49,2 KB / meta 180 KB |
 | **Testado em celular real** | ⬜ (validado headless em 412×915 @2x) |
 
 ### Legenda
@@ -34,7 +34,7 @@
 | **M5** | Meta + save | Núcleos, talentos, offline, save com migração | ✅ |
 | **M6** | Conteúdo | 9 inimigos, 3 bosses, elites, 18 cartas, balanceamento simulado | ✅ |
 | **M7** | Polimento | VFX, áudio, feedback, acessibilidade, degradação automática | ✅ |
-| **M8** | Mobile/loja | APK/IPA instalável, PWA, monetização, fichas de loja | ⬜ |
+| **M8** | Mobile/loja | APK/IPA instalável, PWA, monetização, fichas de loja | 🟡 código pronto · build nativo bloqueado |
 
 ---
 
@@ -559,25 +559,70 @@ curva sem parede é uma curva quebrada, (3) mesmo jogo desleixado passa da onda 
 
 ## M8 — Mobile, loja e monetização
 
-- [ ] Capacitor instalado; `capacitor.config.ts` de SPEC §17.2
-- [ ] Plugins: preferences, haptics, status-bar, splash-screen, app, keep-awake
-- [ ] Android: `cap add android`, orientação travada, back button, ícone adaptativo, splash
-- [ ] iOS: `cap add ios`, safe areas, `contentInset: never`, ícone, launch screen
-- [ ] KeepAwake só durante a run
-- [ ] PWA: manifest + service worker manual, instalável, funciona offline
-- [ ] Stub de anúncios (`platform/ads.stub.ts`) com a interface final; integração real da rede
-- [ ] Rewarded: ×2 offline, reroll, revive, ×2 recompensa de run — todos opt-in explícito
-- [ ] IAP: remover anúncios, pacotes de gemas, ×2 offline permanente
-- [ ] Consentimento de privacidade (GDPR/ATT), política de privacidade hospedada
-- [ ] Build assinado: `.aab` (Play) e `.ipa` (TestFlight)
-- [ ] Ficha da loja: descrição PT/EN, 6 capturas de tela, vídeo de 30 s, ícone 512
-- [ ] Teste em ≥3 dispositivos reais distintos (Android baixo, Android alto, iPhone)
-- [ ] Analytics mínimo: wave alcançada, duração da run, funil de retenção D1/D7
+- [x] Capacitor instalado; `capacitor.config.ts` de SPEC §17.2
+- [~] Plugins: preferences, haptics, status-bar, splash-screen, app, keep-awake
+      _(6 dos 7 instalados e ligados; `@capacitor/keep-awake` deu 404 no registry
+      deste ambiente. O código já chama por import dinâmico opcional — basta
+      `npm i @capacitor/keep-awake` que passa a funcionar, sem mudar nada)_
+- [!] Android: `cap add android`, orientação travada, back button, ícone adaptativo, splash
+      _(back button, orientação e ícones prontos no código/config; `cap add android`
+      exige Android Studio + SDK, que não existem neste ambiente)_
+- [!] iOS: `cap add ios`, safe areas, `contentInset: never`, ícone, launch screen
+      _(safe areas e config prontas; `cap add ios` exige Xcode/macOS)_
+- [x] KeepAwake só durante a run
+- [x] PWA: manifest + service worker manual, instalável, funciona offline
+- [~] Stub de anúncios (`platform/ads.stub.ts`) com a interface final; integração real da rede
+      _(interface, portão de frequência e testes prontos; a rede real precisa de
+      conta de publisher — não dá para fazer daqui)_
+- [~] Rewarded: ×2 offline, reroll, revive, ×2 recompensa de run — todos opt-in explícito
+      _(os quatro tipos existem no enum e o portão os cobre; os botões entram
+      quando houver uma rede que responda `isReady`)_
+- [~] IAP: remover anúncios, pacotes de gemas, ×2 offline permanente
+      _(catálogo e interface prontos; precisa de produtos configurados na loja)_
+- [!] Consentimento de privacidade (GDPR/ATT), política de privacidade hospedada
+      _(bloqueado: depende da decisão de faixa etária e de uma URL hospedada)_
+- [!] Build assinado: `.aab` (Play) e `.ipa` (TestFlight)
+      _(bloqueado: exige chaves de assinatura e contas de loja)_
+- [~] Ficha da loja: descrição PT/EN, 6 capturas de tela, vídeo de 30 s, ícone 512
+      _(ícone 512 e maskable gerados por `npm run icons`; o resto é material de
+      marketing, não código)_
+- [!] Teste em ≥3 dispositivos reais distintos (Android baixo, Android alto, iPhone)
+      _(bloqueado: não há aparelho neste ambiente. Tudo foi validado headless em
+      viewport 412×915 @2x)_
+- [!] Analytics mínimo: wave alcançada, duração da run, funil de retenção D1/D7
+      _(bloqueado: precisa de um endpoint. Os eventos já existem no bus —
+      RunEnded carrega onda e Núcleos — então é só um listener quando houver
+      para onde mandar)_
 
 **Critério de aceite:** APK instalável em celular real, rodando a 60 FPS, com anúncio recompensado funcionando.
 
+**Critério de aceite:** APK instalável em celular real, rodando a 60 FPS, com anúncio recompensado funcionando. ❌ **NÃO ATINGIDO** — depende de Android Studio, chaves de assinatura, um aparelho e uma conta de rede de anúncios. Nada disso existe neste ambiente. O que dá para afirmar: o build web está pronto para `cap sync`, e o PWA instala e abre offline.
+
 **Notas:**
 ```
+- PWA VERIFICADO de verdade: carrega, corta a rede, recarrega, e o jogo abre.
+  O smoke test tem uma flag --offline que falha se isso parar de funcionar.
+- BUG REAL nisso: o service worker registra DEPOIS que os requests da primeira
+  carga já saíram, então o fetch handler nunca via o bundle com hash — e o jogo
+  só abriria offline a partir da SEGUNDA visita. A página agora manda a lista
+  do que carregou (performance.getEntriesByType) e o worker guarda.
+- Navegação é network-first, assets são cache-first. index.html em cache
+  prenderia o jogador num build velho para sempre, porque é o arquivo que nomeia
+  todos os assets com hash. Os assets, tendo hash, nunca podem ficar velhos.
+- Ícones são GERADOS (npm run icons) pelo mesmo motivo dos placeholders: ícone
+  faltando é rejeição de loja, não falha cosmética.
+- Preferences é assíncrono e o SaveManager é síncrono de propósito (escreve do
+  tick fixo). A ponte espelha a store em memória no boot; leitura é síncrona,
+  escrita vai para o device em background.
+- O jogo boota contra localStorage e TROCA para a store nativa quando ela
+  hidrata — o primeiro frame não espera uma ponte assíncrona.
+- Botão voltar do Android tem tratamento explícito por cena, e a tela de cartas
+  é a única que não deixa sair: a carta é devida e sair perderia ela.
+- Interface de anúncio NÃO TEM método de interstitial. A regra "nunca
+  interstitial dentro da run" vira impossível de violar por acidente, em vez de
+  virar um comentário. O portão de 4 min mora na interface, não em cada botão.
+- Camada de anúncio e de compra nunca tocam estado de jogo — devolvem
+  entitlement, quem concede é o jogo. Um SDK de billing não escreve no save.
 ```
 
 ---
@@ -631,8 +676,28 @@ curva sem parede é uma curva quebrada, (3) mesmo jogo desleixado passa da onda 
 
 > Uma entrada por sessão de trabalho. Curta. O "eu do futuro" agradece.
 
-### AAAA-MM-DD — sessão N
-**Feito:**
+### 2026-09-03 — sessão 1
+**Feito:** M0 a M7 completos e verificados; M8 com todo o código pronto (Capacitor,
+PWA instalável e offline, stubs de monetização) e só o que depende de máquina/loja
+em aberto. 287 testes, 49 KB gzip, 60 FPS, heap plano.
+
 **Descoberto:**
-**Bloqueado em:**
-**Próximo passo:**
+- As curvas do SPEC §6.2 estavam quebradas de FORMA, não de ajuste. Upgrade
+  aditivo cresce em log (renda geométrica → níveis em log) contra HP exponencial.
+  Registrei tudo no log de balanceamento do M6, com antes/depois.
+- Dano de inimigo não escalava com a onda, e i-frames travavam o DPS recebido:
+  juntos, faziam ondas tardias não conseguirem matar ninguém.
+- O simulador de balanceamento mentia num número que eu havia chutado. Depois de
+  DERIVAR o DPS recebido de dano/i-frames, ele passou a prever exatamente o que
+  a partida real fazia. Vale mais um modelo calibrado que um modelo bonito.
+- Vários bugs só apareceram no teste ponta a ponta headless, não no unitário:
+  save falhando na própria assinatura por ordem de chaves JSON, boss saindo
+  depois da wave inteira, todas as modais empilhadas por especificidade de CSS,
+  service worker nunca vendo o bundle da primeira carga.
+
+**Bloqueado em:** build nativo (.aab/.ipa), teste em aparelho real, rede de
+anúncios, produtos de IAP e ficha de loja — tudo depende de Android Studio/Xcode,
+chaves de assinatura, contas e um telefone. Nada disso existe neste ambiente.
+
+**Próximo passo:** rodar em celular real (`npm run dev -- --host`) e medir FPS
+com a arte ainda ausente; depois `npx cap add android` numa máquina com SDK.

@@ -29,10 +29,20 @@ export class SaveManager {
   private acc = 0;
 
   constructor(
-    private readonly storage: SlotStorage = new SlotStorage(),
+    private storage: SlotStorage = new SlotStorage(),
     private readonly clock: () => number = () => Date.now(),
   ) {
     this.save = makeDefaultSave(this.clock());
+  }
+
+  /**
+   * Swaps in the durable native store once it has hydrated.
+   *
+   * The game boots against localStorage so the first frame does not wait on an
+   * async bridge; when the real store arrives the caller reloads from it.
+   */
+  attachStorage(storage: SlotStorage): void {
+    this.storage = storage;
   }
 
   /** Reads, migrates and verifies. Never throws — a bad file yields a fresh save. */

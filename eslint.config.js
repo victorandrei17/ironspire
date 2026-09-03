@@ -30,5 +30,12 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.node } },
     rules: { 'no-console': 'off' },
   },
+  {
+    // The service worker ships as-is from public/ and runs in a worker scope,
+    // so it is outside the TS program on purpose.
+    files: ['public/**/*.js'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: { globals: { ...globals.serviceworker } },
+  },
   prettier,
 );

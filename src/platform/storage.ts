@@ -5,6 +5,14 @@
  * because the Android WebView's localStorage is NOT durable — it gets cleared
  * with app data. `save.ts` never learns which one it is talking to.
  */
+const SLOT_A = 'ironspire.save.a';
+const SLOT_B = 'ironspire.save.b';
+const SLOT_CURSOR = 'ironspire.save.cursor';
+
+/** Every key the game owns, so the native backend knows what to hydrate. */
+export const ALL_KEYS = [SLOT_A, SLOT_B, SLOT_CURSOR] as const;
+
+
 export type StorageBackend = {
   get(key: string): string | null;
   set(key: string, value: string): void;
@@ -55,6 +63,71 @@ class LocalStorageBackend implements StorageBackend {
   }
 }
 
+/**
+ * Capacitor Preferences, fronted by an in-memory mirror.
+ *
+ * Preferences is async and `SaveManager` is synchronous by design (it writes
+ * from the fixed tick). So the whole store is read once at boot and kept in
+ * memory; writes go to memory immediately and to the device in the background.
+ *
+ * This exists because the Android WebView's localStorage is NOT durable — it
+ * is wiped with app data, which would silently delete a player's progress
+ * (SPEC §15.1).
+ */
+class PreferencesBackend implements StorageBackend {
+  private readonly mirror = new Map<string, string>();
+
+  constructor(private readonly prefs: PreferencesPlugin) {}
+
+  /** Loads every known key. Must be awaited before the first read. */
+  async hydrate(keys: readonly string[]): Promise<void> {
+    for (const key of keys) {
+      try {
+        const { value } = await this.prefs.get({ key });
+        if (value !== null && value !== undefined) this.mirror.set(key, value);
+      } catch {
+        // A key that will not read is treated as absent, same as on web.
+      }
+    }
+  }
+
+  get(key: string): string | null {
+    return this.mirror.get(key) ?? null;
+  }
+
+  set(key: string, value: string): void {
+    this.mirror.set(key, value);
+    void this.prefs.set({ key, value }).catch(() => undefined);
+  }
+
+  remove(key: string): void {
+    this.mirror.delete(key);
+    void this.prefs.remove({ key }).catch(() => undefined);
+  }
+}
+
+export type PreferencesPlugin = {
+  get(options: { key: string }): Promise<{ value: string | null }>;
+  set(options: { key: string; value: string }): Promise<void>;
+  remove(options: { key: string }): Promise<void>;
+};
+
+/**
+ * Builds the native backend and loads it. Returns null on web, where
+ * localStorage is the right answer.
+ */
+export async function createNativeBackend(
+  prefs: PreferencesPlugin,
+): Promise<StorageBackend | null> {
+  const backend = new PreferencesBackend(prefs);
+  try {
+    await backend.hydrate(ALL_KEYS);
+    return backend;
+  } catch {
+    return null;
+  }
+}
+
 export function defaultBackend(): StorageBackend {
   try {
     if (typeof localStorage === 'undefined') return new MemoryBackend();
@@ -68,10 +141,6 @@ export function defaultBackend(): StorageBackend {
 }
 
 export { MemoryBackend };
-
-const SLOT_A = 'ironspire.save.a';
-const SLOT_B = 'ironspire.save.b';
-const SLOT_CURSOR = 'ironspire.save.cursor';
 
 export type SlotRead = {
   raw: string | null;

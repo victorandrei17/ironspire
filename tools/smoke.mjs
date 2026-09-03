@@ -128,6 +128,23 @@ clearInterval(sampler);
 const frames = await page.evaluate(() => globalThis.__frames);
 const hooks = await page.evaluate(() => globalThis.ironSpire?.state ?? null);
 
+// --offline proves the service worker: load once, cut the network, reload.
+if (process.argv.includes('--offline')) {
+  const registered = await page.evaluate(async () => {
+    const reg = await navigator.serviceWorker?.ready?.catch(() => null);
+    return reg !== null && reg !== undefined;
+  });
+  await page.waitForTimeout(1500);
+  await page.context().setOffline(true);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForTimeout(2000);
+  const offlineState = await page.evaluate(() => globalThis.ironSpire?.state ?? null);
+  await page.context().setOffline(false);
+  console.log(`sw registered: ${registered}`);
+  console.log(`offline boot: ${offlineState === null ? 'FAILED' : 'ok'}`);
+  if (offlineState === null) process.exitCode = 1;
+}
+
 // --reload proves persistence: reboot the page and read the state back.
 let reloaded = null;
 if (process.argv.includes('--reload')) {

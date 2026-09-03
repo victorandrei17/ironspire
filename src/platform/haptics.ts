@@ -17,6 +17,15 @@ const DURATIONS = [8, 18, 32] as const;
 
 let enabled = true;
 
+/** Set by the native bridge at boot. Web keeps the vibration fallback. */
+type NativeHaptics = { impact(options: { style: string }): Promise<void> };
+const NATIVE_STYLE = ['LIGHT', 'MEDIUM', 'HEAVY'] as const;
+let native: NativeHaptics | null = null;
+
+export function setNativeHaptics(plugin: NativeHaptics | null): void {
+  native = plugin;
+}
+
 export function setHapticsEnabled(on: boolean): void {
   enabled = on;
 }
@@ -31,6 +40,12 @@ export function setTapListener(fn: (kind: HapticKind) => void): void {
 export function haptic(kind: HapticKind): void {
   onTap?.(kind);
   if (!enabled) return;
+  if (native !== null) {
+    // The native engine gives real taptic feedback; navigator.vibrate on iOS
+    // does nothing at all.
+    void native.impact({ style: NATIVE_STYLE[kind] ?? 'LIGHT' }).catch(() => undefined);
+    return;
+  }
   const nav = navigator as Navigator & { vibrate?: (pattern: number | number[]) => boolean };
   if (typeof nav.vibrate !== 'function') return;
   try {

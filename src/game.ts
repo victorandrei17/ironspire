@@ -78,6 +78,9 @@ import { QualitySystem, QUALITY, type QualityLevel } from './systems/quality.ts'
 import { setHapticsEnabled, setTapListener } from './platform/haptics.ts';
 import { setLanguage, t } from './data/strings.ts';
 import { AudioSystem } from './platform/audio.ts';
+import { bootNative } from './platform/nativeBoot.ts';
+import { setScreenAwake } from './platform/native.ts';
+import { SlotStorage } from './platform/storage.ts';
 import { SFX, SFX_VOICES } from './data/audio.ts';
 import { UpgradePanel } from './ui/upgradePanel.ts';
 import { CardPicker } from './ui/cardPicker.ts';
@@ -144,6 +147,7 @@ export class Game {
 
   private readonly saves = new SaveManager();
   private pendingOffline: OfflineReward | null = null;
+  private hideSplash: (() => void) | null = null;
 
   private readonly debugLines: string[] = ['', '', '', ''];
 
@@ -265,6 +269,28 @@ export class Game {
   // --- lifecycle -------------------------------------------------------------
 
   start(): void {
+    // Native plugins first, and awaited: the save must be read from the durable
+    // store before anything shows the player their progress.
+    void bootNative().then((native) => {
+      if (native.storage !== null) {
+        this.saves.attachStorage(new SlotStorage(native.storage));
+        this.saves.load();
+        this.onTalentsChanged();
+        this.onPrefsChanged();
+        if (this.scene === SCENE.Menu) this.setScene(SCENE.Menu);
+      }
+      native.onBackButton?.(() => this.handleBackButton());
+      native.onLifecycle?.(
+        () => {
+          this.snapshotRun();
+          this.saves.flush();
+          if (this.scene === SCENE.Run) this.setScene(SCENE.Pause);
+        },
+        () => this.loop.reset(),
+      );
+      this.hideSplash = native.hideSplash;
+    });
+
     this.resize();
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('orientationchange', () => this.resize());
@@ -309,6 +335,9 @@ export class Game {
       if (firstFrame) {
         firstFrame = false;
         this.transition.dismissBoot();
+        // Splash comes down only once a real frame exists, so there is never a
+        // blank gap between the OS splash and the game.
+        this.hideSplash?.();
       }
     };
     requestAnimationFrame(frame);
@@ -320,9 +349,36 @@ export class Game {
 
   // --- scenes ----------------------------------------------------------------
 
+  /**
+   * Android back button (SPEC §11.2 rule 8). Returns true when the app should
+   * exit, which only ever happens from the root screen.
+   */
+  private handleBackButton(): boolean {
+    switch (this.scene) {
+      case SCENE.Run:
+        this.setScene(SCENE.Pause);
+        return false;
+      case SCENE.Pause:
+        this.setScene(SCENE.Run);
+        return false;
+      case SCENE.Talents:
+      case SCENE.Options:
+      case SCENE.Result:
+        this.setScene(SCENE.Menu);
+        return false;
+      case SCENE.CardPick:
+        // Never a way out: a card is owed, and dismissing it would lose it.
+        return false;
+      default:
+        return true;
+    }
+  }
+
   private setScene(next: Scene): void {
     this.scene = next;
     const inRun = next === SCENE.Run;
+    // The screen stays awake only during a run — never on a menu (SPEC §17.3).
+    setScreenAwake(inRun);
     this.hud.setVisible(inRun || next === SCENE.CardPick);
     this.panel.setVisible(inRun);
     this.topBar.setVisible(inRun);
