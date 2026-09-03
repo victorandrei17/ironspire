@@ -1,3 +1,4 @@
+import { DamageQueue } from '../core/damageQueue.ts';
 import { EnemyPool } from './enemyPool.ts';
 import { ProjectilePool } from './projectilePool.ts';
 import { ParticlePool } from './particlePool.ts';
@@ -34,6 +35,25 @@ export class World {
   readonly pickups = new PickupPool();
   readonly damageNumbers = new DamageNumberPool();
   readonly tower = new Tower();
+
+  /**
+   * The single damage path (SPEC §12.3). It lives on the world so every system
+   * reaches the same queue and none of them is tempted to touch HP directly.
+   */
+  readonly queue = new DamageQueue();
+
+  /**
+   * What a splitter leaves behind when it dies. The spawner keeps this current
+   * for the wave, so the death path never has to recompute wave economy.
+   */
+  readonly splitTemplate = {
+    defIdx: 0,
+    radius: 10,
+    speed: 80,
+    flags: 0,
+    gold: 0,
+    xp: 0,
+  };
 
   /**
    * The grid must cover the despawn ring, not just the visible arena: enemies

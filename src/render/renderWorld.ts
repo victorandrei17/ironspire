@@ -25,6 +25,28 @@ export type SpriteLayer = {
   readonly keys: readonly SpriteKey[];
 };
 
+/** Enemies additionally expose health, so the renderer can draw hit bars. */
+export type EnemyLayer = SpriteLayer & {
+  readonly hp: Float32Array;
+  readonly hpMax: Float32Array;
+  readonly radius: Float32Array;
+};
+
+/** Floating numbers are blitted from the digit atlas, not from a sprite key. */
+export type NumberLayer = {
+  readonly x: Float32Array;
+  readonly y: Float32Array;
+  readonly prevX: Float32Array;
+  readonly prevY: Float32Array;
+  readonly value: Float32Array;
+  readonly life: Float32Array;
+  readonly lifeMax: Float32Array;
+  readonly scale: Float32Array;
+  readonly row: Uint8Array;
+  readonly alive: Uint8Array;
+  count: number;
+};
+
 export type TowerView = {
   x: number;
   y: number;
@@ -38,7 +60,8 @@ export type TowerView = {
 };
 
 export type RenderWorld = {
-  enemies: SpriteLayer;
+  enemies: EnemyLayer;
+  damageNumbers: NumberLayer;
   projectiles: SpriteLayer;
   pickups: SpriteLayer;
   particles: SpriteLayer;

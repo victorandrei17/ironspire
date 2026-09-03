@@ -12,6 +12,7 @@ import { ST } from '../entities/tower.ts';
 export function createWorldView(world: World): RenderWorld {
   return {
     enemies: world.enemies,
+    damageNumbers: world.damageNumbers,
     projectiles: world.projectiles,
     pickups: world.pickups,
     particles: world.particles,

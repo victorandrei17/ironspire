@@ -216,4 +216,16 @@ export const ENEMY_TUNING = {
   /** Splitter death spawn. */
   splitInto: 'swarmling' as EnemyId,
   splitCount: 3,
+  /** Children inherit this fraction of the parent's max HP. */
+  splitHpFraction: 0.18,
+  /** Explosive elite affix: area damage to the tower when it dies close by. */
+  explosiveAffixRadius: 110,
+  explosiveAffixDamage: 12,
+  /** Vampiric elite affix heals this fraction of the damage it deals. */
+  vampiricAffixHeal: 0.5,
+  /** Armoured elite affix damage reduction. */
+  armoredAffixReduction: 0.4,
+  /** Enemy projectiles: slow enough to read and dodge-by-positioning. */
+  projectileSpeed: 300,
+  projectileRadius: 7,
 } as const;

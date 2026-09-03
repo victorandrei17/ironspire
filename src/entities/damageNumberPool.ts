@@ -2,6 +2,17 @@ import { Pool } from '../core/pool.ts';
 import { DMGNUM_CAP } from '../core/constants.ts';
 
 /**
+ * Colour rows in the digit atlas. They live here, not in `render/`, because
+ * `systems/damage.ts` picks the colour when it queues a number and systems must
+ * not import from render (CLAUDE.md §3).
+ */
+export const DIGIT_WHITE = 0;
+export const DIGIT_CRIT = 1;
+export const DIGIT_DAMAGE = 2;
+export const DIGIT_HEAL = 3;
+export const DIGIT_GOLD = 4;
+
+/**
  * Floating damage numbers. Values are kept as numbers, never strings — the
  * digit atlas blits from the integer directly (SPEC §16.4 rule 6).
  */

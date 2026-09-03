@@ -9,12 +9,12 @@
 
 | | |
 |---|---|
-| **Milestone atual** | M3 — Combate |
+| **Milestone atual** | M4 — Vertical slice |
 | **Última atualização** | 2026-09-03 |
 | **Build roda?** | ✅ `npm run build` limpo |
 | **FPS medido (throttle 6×, wave 20)** | — (sem waves ainda) |
-| **Cobertura `core/` + `data/`** | 89 testes verdes |
-| **Bundle gzip** | 13,1 KB / meta 180 KB |
+| **Cobertura `core/` + `data/`** | 134 testes verdes |
+| **Bundle gzip** | 19,6 KB / meta 180 KB |
 | **Testado em celular real** | ⬜ (validado headless em 412×915 @2x) |
 
 ### Legenda
@@ -29,7 +29,7 @@
 | **M0** | Fundação | Canvas escalando, loop fixo, input, overlay de debug | ✅ |
 | **M1** | Render + sprites | Torre e um inimigo desenhados **só com placeholders** | ✅ |
 | **M2** | Pools + colisão | 400 inimigos andando a 60 FPS, spatial hash testado | ✅ |
-| **M3** | Combate | Torre atira, acerta, mata, drops aparecem | ⬜ |
+| **M3** | Combate | Torre atira, acerta, mata, drops aparecem | ✅ |
 | **M4** | **VERTICAL SLICE** | Run completa: waves → upgrades → cartas → morte → resultado | ⬜ |
 | **M5** | Meta + save | Núcleos, talentos, offline, save com migração | ⬜ |
 | **M6** | Conteúdo | 9 inimigos, 3 bosses, elites, 18 cartas, balanceamento simulado | ⬜ |
@@ -211,28 +211,58 @@
 
 ## M3 — Combate
 
-- [ ] `src/data/enemies.ts`: os 9 `EnemyDef` de SPEC §5.1 (só dados)
-- [ ] `src/systems/targeting.ts`: 5 políticas, 10 Hz, alvo pegajoso, consulta pelo grid
-- [ ] `src/systems/weapons.ts`: cadência, leque de múltiplos projéteis, spawn de projétil
-- [ ] `src/systems/projectiles.ts`: movimento, swept test segmento-círculo, pierce, despawn
-- [ ] `src/systems/damage.ts`: **fila de dano** — crítico, camadas de stat, redução, lifesteal, morte
-- [ ] Estados de inimigo: `SEEK → ATTACK` (melee) / `APPROACH → SHOOT` (ranged) com projétil inimigo
-- [ ] Dano na torre + i-frames de 0,25 s + flash de tela + shake
-- [ ] Morte: partículas, som enfileirado, drop de ouro/XP
-- [ ] `src/systems/rewards.ts`: pickups com ímã (`pickupRadius`), auto-coleta
-- [ ] `src/systems/status.ts`: slow, freeze, burn — como bitflags + timers em typed arrays
-- [ ] Números de dano flutuantes via `digitAtlas`
-- [ ] `src/systems/camera.ts`: trauma/shake com decaimento quadrático
-- [ ] **Teste:** cálculo de dano — ordem de camadas, crít, cap de lifesteal, sem NaN
-- [ ] **Teste:** projétil rápido não atravessa inimigo pequeno (swept test)
-- [ ] **Verificação de perf:** 250 inimigos + 400 projéteis, throttle 6×
+- [x] `src/data/enemies.ts`: os 9 `EnemyDef` de SPEC §5.1 (só dados)
+- [x] `src/systems/targeting.ts`: 5 políticas, 10 Hz, alvo pegajoso, consulta pelo grid
+- [x] `src/systems/weapons.ts`: cadência, leque de múltiplos projéteis, spawn de projétil
+- [x] `src/systems/projectiles.ts`: movimento, swept test segmento-círculo, pierce, despawn
+- [x] `src/systems/damage.ts`: **fila de dano** — crítico, camadas de stat, redução, lifesteal, morte
+- [x] Estados de inimigo: `SEEK → ATTACK` (melee) / `APPROACH → SHOOT` (ranged) com projétil inimigo
+- [x] Dano na torre + i-frames de 0,25 s + flash de tela + shake
+- [x] Morte: partículas, som enfileirado, drop de ouro/XP
+- [x] `src/systems/rewards.ts`: pickups com ímã (`pickupRadius`), auto-coleta
+- [x] `src/systems/status.ts`: slow, freeze, burn — como bitflags + timers em typed arrays
+- [x] Números de dano flutuantes via `digitAtlas`
+- [x] `src/systems/camera.ts`: trauma/shake com decaimento quadrático
+- [x] **Teste:** cálculo de dano — ordem de camadas, crít, cap de lifesteal, sem NaN
+- [x] **Teste:** projétil rápido não atravessa inimigo pequeno (swept test)
+- [~] **Verificação de perf:** 250 inimigos + 400 projéteis, throttle 6×
+      _(JS medido; FPS bruto ainda limitado pelo raster por software do headless)_
 
-**Critério de aceite:** torre mata inimigos, ouro cai e é coletado, tomar dano é legível e sentido.
+**Critério de aceite:** torre mata inimigos, ouro cai e é coletado, tomar dano é legível e sentido. ✅ (verificado headless: 7 kills / 42 de ouro em 20 s de cerco)
 
-**FPS medido:** `—`
+**FPS medido:** `sim 0,28 ms + render 0,84 ms` @ 250 inimigos — ver nota sobre o ambiente
 
 **Notas:**
 ```
+- A FILA DE DANO foi partida em dois arquivos de propósito: core/damageQueue.ts
+  guarda os dados (entities/World precisa dela e não pode importar systems/), e
+  systems/damage.ts tem a resolução. Sem isso a seta de dependência invertia.
+- resolveDamage relê q.length a cada iteração: hits enfileirados DURANTE a
+  resolução (espinhos, explosão de elite, morte que gera split) resolvem no
+  mesmo tick. Reação em cadeia fecha em 1 tick, com o teto de 512 como freio.
+- Ordem fixa dentro do dano: escudo do warden (direcional, ignora área) →
+  afixo blindado → crítico → HP → lifesteal → morte. Um lugar só, testado.
+- Colisão de projétil é SWEPT (segmento-círculo). Um bolt a 900 u/s anda 15 u
+  por tick e um teste pontual atravessaria um swarmling de raio 10 inteiro.
+  Teste específico para isso.
+- BUG ENCONTRADO PELO TESTE: pierce=2 acertava só 2 inimigos, não 3. Eu
+  decrementava pierce e liberava quando chegava a 0 — o acerto que gasta o
+  projétil é o que acontece COM pierce já em 0. Corrigido e coberto.
+- Corrente (chain) redireciona o projétil gasto em vez de spawnar outro: mesmo
+  visual, sem pressão extra no pool.
+- Deathmark resolve como VALOR de dano (hp restante), não como um "matar"
+  paralelo — assim a morte, o drop e o evento continuam saindo do caminho único.
+- DIGIT_* saiu de render/digitAtlas para entities/damageNumberPool: quem escolhe
+  a cor é systems/damage.ts, e systems não importa render.
+- Mira a 10 Hz e PEGAJOSA. Trocar de alvo a cada frame faz o canhão tremer entre
+  dois inimigos equidistantes e lê como bug.
+- Flash da torre limitado a 0,55: sob cerco constante ela é rehit a cada janela
+  de i-frame e uma silhueta 100% branca apagaria justamente o que precisa ficar
+  legível (SPEC §11.2 regra 3).
+- src/debug/demoScene.ts (galeria de placeholders do M1) foi removido — os pools
+  reais substituíram. O contrato continua coberto pelo teste, não pela demo.
+- GC: heap floor 1,78 → 1,77 MB em 20 s com 250 inimigos, tiro, morte, drops e
+  partículas rodando. Plano.
 ```
 
 ---

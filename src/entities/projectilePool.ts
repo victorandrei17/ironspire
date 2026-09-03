@@ -9,6 +9,8 @@ export const PF = {
   Chaining: 1 << 2,
   /** Orbital sentinel: follows the tower rather than travelling. */
   Orbital: 1 << 3,
+  /** Carries the deathmark execute (SPEC §8.2 card 18). */
+  Deathmarked: 1 << 4,
 } as const;
 
 /** Projectile pool (SPEC §12.4). Same SoA shape as EnemyPool. */

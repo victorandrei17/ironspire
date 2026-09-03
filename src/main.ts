@@ -1,5 +1,6 @@
 import { GameLoop } from './core/loop.ts';
 import { Rng } from './core/rng.ts';
+import { RunState } from './core/state.ts';
 import { Viewport } from './render/viewport.ts';
 import { Input } from './platform/input.ts';
 import { Lifecycle } from './platform/lifecycle.ts';
@@ -9,7 +10,16 @@ import { AssetRegistry } from './render/assetRegistry.ts';
 import { missingSpriteKeys } from './render/drawSprite.ts';
 import { createWorldView, syncWorldView } from './render/worldView.ts';
 import { World } from './entities/world.ts';
+import { ST } from './entities/tower.ts';
 import { AiSystem } from './systems/ai.ts';
+import { TargetingSystem } from './systems/targeting.ts';
+import { updateWeapons } from './systems/weapons.ts';
+import { ProjectileSystem } from './systems/projectiles.ts';
+import { EnemyCombatSystem } from './systems/enemyCombat.ts';
+import { StatusSystem } from './systems/status.ts';
+import { resolveDamage } from './systems/damage.ts';
+import { updateRewards } from './systems/rewards.ts';
+import { CameraSystem } from './systems/camera.ts';
 import {
   integrateEnemies,
   integrateProjectiles,
@@ -19,7 +29,8 @@ import {
   despawnStrays,
 } from './systems/movement.ts';
 import { stressFill } from './debug/stressSpawner.ts';
-import { ST } from './entities/tower.ts';
+import { AURA_HZ } from './core/constants.ts';
+import { BAL } from './data/balance.ts';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui') as HTMLDivElement;
@@ -35,8 +46,17 @@ const assets = new AssetRegistry();
 
 const world = new World();
 const view = createWorldView(world);
+const run = new RunState();
+const rng = new Rng(0x12059128);
+
 const ai = new AiSystem();
-const rng = new Rng(0x1205_9128);
+const targeting = new TargetingSystem();
+const projectiles = new ProjectileSystem();
+const enemyCombat = new EnemyCombatSystem();
+const status = new StatusSystem();
+const camera = new CameraSystem(rng);
+
+run.reset(rng.state, BAL.progression.xpBase, 1);
 
 function resize(): void {
   viewport.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
@@ -63,18 +83,20 @@ lifecycle.attach();
 // The atlas is optional by contract: absent means placeholders (SPEC §13.6).
 void assets.load('game', viewport.dpr);
 
-/** M2 load check: keep the arena saturated so the profile is worst case. */
-const STRESS_TARGET = readIntParam('enemies', 400);
+/** M3 load check: keep the arena saturated so the profile stays worst case. */
+const STRESS_TARGET = readIntParam('enemies', 250);
 
 function readIntParam(name: string, dflt: number): number {
   const raw = new URLSearchParams(window.location.search).get(name);
   const n = raw === null ? NaN : Number.parseInt(raw, 10);
   return Number.isFinite(n) ? n : dflt;
 }
+
 stressFill(world, STRESS_TARGET, rng);
 
-const debugLines: string[] = ['', '', ''];
+const debugLines: string[] = ['', '', '', ''];
 
+/** System order is SPEC §12.3. Do not reorder without updating the spec. */
 function simulate(dt: number): void {
   input.flush(dt);
   if (input.fourFingerTap) {
@@ -82,9 +104,10 @@ function simulate(dt: number): void {
     overlay.toggle();
   }
 
-  // Order per SPEC §12.3. Combat systems slot in between these at M3.
-  world.rebuildHash();
+  run.time += dt;
+
   ai.update(world.enemies, world.hash, world.tower.x, world.tower.y, dt);
+
   integrateEnemies(world.enemies, dt);
   integrateProjectiles(world.projectiles, dt);
   integratePickups(
@@ -94,17 +117,36 @@ function simulate(dt: number): void {
     world.tower.y,
     world.tower.stats.get(ST.PickupRadius),
   );
+
+  world.rebuildHash();
+
+  targeting.update(world.tower, world.enemies, world.hash, run.policy, dt);
+  updateWeapons(world, dt);
+  projectiles.update(world);
+  enemyCombat.update(world, dt);
+  status.update(world, dt, AURA_HZ);
+
+  resolveDamage(world, run, rng, dt);
+  updateRewards(world, run);
+
   integrateParticles(world.particles, dt);
   integrateDamageNumbers(world.damageNumbers, dt);
   despawnStrays(world.enemies, world.tower.x, world.tower.y);
+  camera.update(dt);
 
-  // Top the arena back up so the load stays constant while profiling.
+  // Keep the arena topped up, and keep the tower alive, so the profile does not
+  // quietly become "an empty screen". Waves and death arrive in M4.
+  if (!world.tower.alive) {
+    world.tower.hp = world.tower.hpMax;
+    run.over = false;
+  }
   stressFill(world, STRESS_TARGET, rng);
 
-  debugLines[0] = `enemies ${world.enemies.liveCount}/${world.enemies.cap} · grid ${world.hash.size}`;
-  debugLines[1] = `atlas ${assets.loaded ? 'on' : 'placeholders'} · drops ${world.enemies.droppedSpawns}`;
+  debugLines[0] = `enemies ${world.enemies.liveCount} · proj ${world.projectiles.liveCount} · fx ${world.particles.liveCount}`;
+  debugLines[1] = `hp ${world.tower.hp.toFixed(0)}/${world.tower.hpMax.toFixed(0)} · gold ${run.gold.toFixed(0)} · xp ${run.xp.toFixed(0)}`;
+  debugLines[2] = `kills ${run.kills} · dmg ${run.damageDealt.toFixed(0)} · qOvf ${world.queue.overflow}`;
   const missing = missingSpriteKeys();
-  debugLines[2] = missing.length === 0 ? 'sprites ok' : `MISSING ${missing.length}`;
+  debugLines[3] = missing.length === 0 ? 'sprites ok' : `MISSING ${missing.length}`;
   overlay.update(dt, {
     fps: loop.fps,
     simMs: loop.simMs,
@@ -115,7 +157,7 @@ function simulate(dt: number): void {
 }
 
 function render(alpha: number): void {
-  syncWorldView(view, world, 0, 0);
+  syncWorldView(view, world, camera.x, camera.y);
   renderer.render(view, alpha);
 }
 
@@ -140,6 +182,12 @@ requestAnimationFrame(frame);
   },
   get enemies(): number {
     return world.enemies.liveCount;
+  },
+  get kills(): number {
+    return run.kills;
+  },
+  get gold(): number {
+    return Math.round(run.gold);
   },
   get simMs(): number {
     return Number(loop.simMs.toFixed(2));

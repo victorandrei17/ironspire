@@ -4,6 +4,7 @@ import type { RenderWorld, SpriteLayer } from './renderWorld.ts';
 import { drawSprite, setWorldTransform, applyWorldTransform } from './drawSprite.ts';
 import { Ground } from './ground.ts';
 import { YSorter } from './layers.ts';
+import { drawInt } from './digitAtlas.ts';
 import './placeholderArt.ts';
 
 /**
@@ -66,6 +67,54 @@ export class Renderer {
     this.drawTower(world);
     this.drawLayer(world.projectiles, alpha);
     this.drawLayer(world.particles, alpha);
+    this.drawEnemyHealthBars(world, alpha);
+    this.drawDamageNumbers(world, alpha);
+  }
+
+  /**
+   * Health pips above wounded enemies. Only drawn for enemies that have
+   * actually been hit — 400 permanently full bars is visual noise and 800 extra
+   * fills a frame.
+   */
+  private drawEnemyHealthBars(world: RenderWorld, alpha: number): void {
+    const e = world.enemies;
+    const ctx = this.ctx;
+    applyWorldTransform(ctx);
+    for (let i = 0; i < e.count; i++) {
+      if (e.alive[i] === 0) continue;
+      const hp = e.hp[i] ?? 0;
+      const max = e.hpMax[i] ?? 1;
+      if (hp >= max || hp <= 0) continue;
+      const x = lerpArr(e.prevX, e.x, i, alpha);
+      const y = lerpArr(e.prevY, e.y, i, alpha) - (e.radius[i] ?? 12) - 9;
+      const w = 26 * (e.scale[i] ?? 1);
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(x - w / 2, y, w, 3.5);
+      ctx.fillStyle = '#e2564d';
+      ctx.fillRect(x - w / 2, y, w * (hp / max), 3.5);
+    }
+  }
+
+  private drawDamageNumbers(world: RenderWorld, alpha: number): void {
+    const d = world.damageNumbers;
+    const ctx = this.ctx;
+    applyWorldTransform(ctx);
+    for (let i = 0; i < d.count; i++) {
+      if (d.alive[i] === 0) continue;
+      const life = d.life[i] ?? 0;
+      const max = d.lifeMax[i] ?? 1;
+      const t = life / max;
+      ctx.globalAlpha = t < 0.35 ? t / 0.35 : 1;
+      drawInt(
+        ctx,
+        d.value[i] ?? 0,
+        lerpArr(d.prevX, d.x, i, alpha),
+        lerpArr(d.prevY, d.y, i, alpha),
+        d.scale[i] ?? 1,
+        d.row[i] ?? 0,
+      );
+    }
+    ctx.globalAlpha = 1;
   }
 
   /**
@@ -151,8 +200,12 @@ export class Renderer {
 
   private drawTower(world: RenderWorld): void {
     const t = world.tower;
-    drawSprite(this.ctx, 'tower/base', t.x, t.y, 0, 1, 1, t.flash);
-    drawSprite(this.ctx, 'tower/cannon', t.x, t.y, t.aimRot, 1, 1, t.flash);
+    // Capped: under a sustained swarm the tower is re-hit every i-frame window,
+    // and a fully white silhouette would erase the one thing that must stay
+    // readable at all times (SPEC §11.2 rule 3).
+    const flash = t.flash > 0.55 ? 0.55 : t.flash;
+    drawSprite(this.ctx, 'tower/base', t.x, t.y, 0, 1, 1, flash);
+    drawSprite(this.ctx, 'tower/cannon', t.x, t.y, t.aimRot, 1, 1, flash);
     drawSprite(this.ctx, 'tower/core', t.x, t.y, 0, 1, 1, 0);
     if (t.shieldT > 0) {
       drawSprite(this.ctx, 'tower/shield', t.x, t.y, 0, 1 + 0.04 * t.shieldT, t.shieldT, 0);

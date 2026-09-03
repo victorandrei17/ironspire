@@ -14,12 +14,14 @@ const GLYPHS = '0123456789.,+-KMBTQ!x%';
 const GLYPH_H = 22;
 const PAD = 2;
 
-/** Row index per colour. Kept as constants so callers never build strings. */
-export const DIGIT_WHITE = 0;
-export const DIGIT_CRIT = 1;
-export const DIGIT_DAMAGE = 2;
-export const DIGIT_HEAL = 3;
-export const DIGIT_GOLD = 4;
+// Row indices live in entities/damageNumberPool.ts — see the note there.
+export {
+  DIGIT_WHITE,
+  DIGIT_CRIT,
+  DIGIT_DAMAGE,
+  DIGIT_HEAL,
+  DIGIT_GOLD,
+} from '../entities/damageNumberPool.ts';
 
 const ROW_COLORS = ['#ffffff', '#ffe08a', '#ff8a80', '#9dfacd', '#f2c14e'] as const;
 const ROW_OUTLINE = '#0a0d13';
