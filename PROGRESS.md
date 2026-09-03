@@ -10,12 +10,12 @@
 | | |
 |---|---|
 | **Milestone atual** | M8 — código pronto; build nativo e loja bloqueados por ambiente |
-| **Última atualização** | 2026-09-03 |
-| **Build roda?** | ✅ `npm run build` limpo |
-| **FPS medido (throttle 6×, wave 20)** | — (sem waves ainda) |
+| **Última atualização** | 2026-09-03 — M0–M7 fechados, M8 com build nativo bloqueado |
+| **Build roda?** | ✅ `npm run build` limpo · PWA instalável e abre offline |
+| **FPS medido** | 60 · sim 0,17 ms + render 0,18 ms (JS) · heap plano |
 | **Cobertura `core/` + `data/`** | 287 testes verdes |
 | **Bundle gzip** | 49,2 KB / meta 180 KB |
-| **Testado em celular real** | ⬜ (validado headless em 412×915 @2x) |
+| **Testado em celular real** | ⬜ — validado headless em 412×915 @2x; falta aparelho |
 
 ### Legenda
 `[ ]` a fazer · `[x]` feito e verificado · `[~]` em andamento · `[!]` bloqueado · `[-]` cancelado (com motivo)
@@ -631,13 +631,13 @@ curva sem parede é uma curva quebrada, (3) mesmo jogo desleixado passa da onda 
 
 | # | Risco | Impacto | Mitigação | Status |
 |---|-------|---------|-----------|--------|
-| R1 | Canvas2D não aguentar 400+ inimigos em aparelho fraco | Alto | Orçamento e medição desde M2; plano B: renderer WebGL por trás da mesma API `drawSprite` | 🟡 monitorar |
-| R2 | Curva de dificuldade errada afastar o jogador cedo | Alto | `sim-balance` no M6 + telemetria no M8 | 🟡 monitorar |
+| R1 | Canvas2D não aguentar 400+ inimigos em aparelho fraco | Alto | Medido: 400 inimigos = 0,24 ms sim + 0,98 ms render de JS, contra orçamento de 5+7 ms. Falta confirmar em aparelho real (o headless não tem GPU) | 🟢 baixo, pendente de aparelho |
+| R2 | Curva de dificuldade errada afastar o jogador cedo | Alto | Curvas reescritas no M6 com base em simulação (ver log). `npm run balance --check` é portão. Falta telemetria real | 🟡 monitorar |
 | R3 | Ouro estourando a precisão de float em jogo muito longo | Baixo | Só relevante acima de 1e250; medir na telemetria antes de complicar | 🟢 aceito |
 | R4 | `localStorage` limpo pelo WebView do Android | Alto | Capacitor Preferences + slot duplo + export manual | 🟢 mitigado no plano |
 | R5 | Escopo crescer (arenas, loot, multiplayer) | Alto | SPEC §21 é lei; ideias vão para a seção abaixo | 🟡 monitorar |
 | R6 | Arte final não casar com as caixas de colisão dos placeholders | Médio | Grid de tamanhos fixado em SPEC §13.7 desde já | 🟢 mitigado |
-| R7 | Políticas de loja (COPPA, ATT) travarem a publicação | Médio | Decidir faixa etária antes do M8; declarar corretamente | 🟡 monitorar |
+| R7 | Políticas de loja (COPPA, ATT) travarem a publicação | Médio | Decidir faixa etária antes do M8; declarar corretamente | 🔴 BLOQUEIA publicação — decisão pendente do dono do projeto |
 
 ---
 
