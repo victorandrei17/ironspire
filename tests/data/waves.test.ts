@@ -6,7 +6,6 @@ import {
   enemyHp,
   enemySpeedMul,
   goldDrop,
-  xpDrop,
   isBossWave,
   eliteChance,
   PATTERN_WEIGHTS,
@@ -14,23 +13,23 @@ import {
 } from '../../src/data/waves.ts';
 import { ENEMY_ORDER } from '../../src/data/enemies.ts';
 import { BAL } from '../../src/data/balance.ts';
+import { UPGRADES } from '../../src/data/upgrades.ts';
 
 describe('wave curves (SPEC §6.2)', () => {
   it('every curve is finite and non-negative to wave 500', () => {
     for (let w = 1; w <= 500; w++) {
-      for (const v of [enemyCount(w), enemyHp(w), enemySpeedMul(w), goldDrop(w), xpDrop(w)]) {
+      for (const v of [enemyCount(w), enemyHp(w), enemySpeedMul(w), goldDrop(w)]) {
         expect(Number.isFinite(v)).toBe(true);
         expect(v).toBeGreaterThanOrEqual(0);
       }
     }
   });
 
-  it('count, hp, gold and xp are monotonically non-decreasing', () => {
+  it('count, hp and gold are monotonically non-decreasing', () => {
     for (let w = 2; w <= 500; w++) {
       expect(enemyCount(w)).toBeGreaterThanOrEqual(enemyCount(w - 1));
       expect(enemyHp(w)).toBeGreaterThan(enemyHp(w - 1));
       expect(goldDrop(w)).toBeGreaterThan(goldDrop(w - 1));
-      expect(xpDrop(w)).toBeGreaterThan(xpDrop(w - 1));
       expect(enemySpeedMul(w)).toBeGreaterThanOrEqual(enemySpeedMul(w - 1));
     }
   });
@@ -49,10 +48,18 @@ describe('wave curves (SPEC §6.2)', () => {
     expect(after / before).toBeCloseTo(BAL.wave.hpGrowthLate, 6);
   });
 
-  it('late growth really is slower than early growth', () => {
-    const early = enemyHp(10) / enemyHp(9);
+  it('the late curve outruns a compounding upgrade, so a wall exists', () => {
     const late = enemyHp(200) / enemyHp(199);
-    expect(late).toBeLessThan(early);
+    // Income and cost are both geometric, so upgrade levels grow linearly and
+    // the compounding damage upgrade turns into an exponential in waves. The
+    // late curve has to beat that exponent or no wall exists at all — which is
+    // exactly what `npm run balance` caught when this curve was the flatter of
+    // the two. The margin is the ordinary player's share of the fight.
+    const damage = UPGRADES.find((u) => u.id === 'damage');
+    expect(damage?.kind).toBe('mult');
+    const levelsPerWave = Math.log(BAL.wave.goldGrowth) / Math.log(damage!.costGrowth);
+    const playerGrowth = Math.pow(damage!.perLevel, levelsPerWave);
+    expect(late).toBeGreaterThan(playerGrowth);
   });
 
   it('HP at wave 500 is far below float overflow', () => {

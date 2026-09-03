@@ -15,7 +15,6 @@ export function createWorldView(world: World): RenderWorld {
     damageNumbers: world.damageNumbers,
     hazards: world.hazards,
     projectiles: world.projectiles,
-    pickups: world.pickups,
     particles: world.particles,
     tower: {
       x: world.tower.x,

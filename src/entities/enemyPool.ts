@@ -60,7 +60,6 @@ export class EnemyPool extends Pool {
 
   // Economy carried by the enemy so drops do not need a def lookup on death.
   readonly goldValue = new Float32Array(this.cap);
-  readonly xpValue = new Float32Array(this.cap);
 
   /** Sprite keys this pool can reference, indexed by `spriteIdx`. */
   keys: readonly SpriteKey[] = [];
@@ -104,7 +103,6 @@ export class EnemyPool extends Pool {
     this.freezeT[i] = 0;
     this.phaseT[i] = 0;
     this.goldValue[i] = 0;
-    this.xpValue[i] = 0;
     return i;
   }
 

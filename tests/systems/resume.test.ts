@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { RunState } from '../../src/core/state.ts';
+import { BAL } from '../../src/data/balance.ts';
 import { UPGRADE_COUNT } from '../../src/data/upgrades.ts';
 import { CARD_COUNT } from '../../src/data/cards.ts';
 import { SaveManager } from '../../src/save/save.ts';
 import { SlotStorage, MemoryBackend } from '../../src/platform/storage.ts';
 import { migrate } from '../../src/save/migrations.ts';
 import type { RunSnapshot } from '../../src/save/schema.ts';
-import { xpToNext } from '../../src/systems/progression.ts';
 
 const NOW = 1_700_000_000_000;
 
@@ -17,8 +17,8 @@ function snapshotOf(run: RunState, towerHp: number): RunSnapshot {
     time: run.time,
     gold: run.gold,
     goldEarned: run.goldEarned,
-    xp: run.xp,
-    xpToNext: run.xpToNext,
+    wavesCleared: run.wavesCleared,
+    nextCardWave: run.nextCardWave,
     level: run.level,
     kills: run.kills,
     policy: run.policy,
@@ -34,12 +34,12 @@ function snapshotOf(run: RunState, towerHp: number): RunSnapshot {
 describe('interrupted run (SPEC §15.2)', () => {
   it('survives a full write/read cycle with every field intact', () => {
     const run = new RunState(UPGRADE_COUNT, CARD_COUNT);
-    run.reset(0xabc, xpToNext(1), 2);
+    run.reset(0xabc, BAL.progression.cardEveryWaves, 2);
     run.wave = 7;
     run.time = 214.5;
     run.gold = 1234;
     run.goldEarned = 5678;
-    run.xp = 9;
+    run.wavesCleared = 6;
     run.level = 6;
     run.kills = 88;
     run.waveMax = 7;

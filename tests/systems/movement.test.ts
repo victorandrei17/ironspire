@@ -4,10 +4,8 @@ import {
   integrateEnemies,
   integrateProjectiles,
   integrateParticles,
-  integratePickups,
   integrateDamageNumbers,
 } from '../../src/systems/movement.ts';
-import { PICKUP_GOLD } from '../../src/entities/pickupPool.ts';
 import { FIXED_DT, TOWER_X, TOWER_Y } from '../../src/core/constants.ts';
 import { enemyIndex, ENEMY_LIST } from '../../src/data/enemies.ts';
 import { DIGIT_WHITE } from '../../src/render/digitAtlas.ts';
@@ -67,24 +65,6 @@ describe('integration', () => {
     w.particles.drag[i] = 50; // drag * dt > 1 at any sane timestep
     integrateParticles(w.particles, 0.25);
     expect(w.particles.vx[i]).toBe(0);
-  });
-
-  it('the magnet pulls a settled pickup toward the tower', () => {
-    const w = new World();
-    const i = w.pickups.spawn(TOWER_X + 90, TOWER_Y, 0, 0, PICKUP_GOLD, 5, 0);
-    w.pickups.settleT[i] = 0;
-    const before = w.pickups.x[i]!;
-    for (let t = 0; t < 20; t++) integratePickups(w.pickups, FIXED_DT, TOWER_X, TOWER_Y, 130);
-    expect(w.pickups.x[i]!).toBeLessThan(before);
-  });
-
-  it('a pickup outside the magnet radius is not pulled in', () => {
-    const w = new World();
-    const i = w.pickups.spawn(TOWER_X + 400, TOWER_Y, 0, 0, PICKUP_GOLD, 5, 0);
-    w.pickups.settleT[i] = 0;
-    const before = w.pickups.x[i]!;
-    for (let t = 0; t < 20; t++) integratePickups(w.pickups, FIXED_DT, TOWER_X, TOWER_Y, 130);
-    expect(Math.abs(w.pickups.x[i]! - before)).toBeLessThan(0.5);
   });
 
   it('damage numbers rise, arc and expire', () => {

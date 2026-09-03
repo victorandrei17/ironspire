@@ -23,9 +23,8 @@ export type EnemyDef = {
   readonly flags: number;
   /** Ranged types stop here instead of closing to contact. 0 = melee. */
   readonly preferredRange: number;
-  /** Multipliers on the wave gold/XP curve. */
+  /** Multiplier on the wave gold curve. */
   readonly goldMul: number;
-  readonly xpMul: number;
 };
 
 export const ENEMIES = {
@@ -42,7 +41,6 @@ export const ENEMIES = {
     flags: 0,
     preferredRange: 0,
     goldMul: 1,
-    xpMul: 1,
   },
   runner: {
     id: 'runner',
@@ -59,7 +57,6 @@ export const ENEMIES = {
     flags: 0,
     preferredRange: 0,
     goldMul: 1,
-    xpMul: 1,
   },
   brute: {
     id: 'brute',
@@ -74,7 +71,6 @@ export const ENEMIES = {
     flags: 0,
     preferredRange: 0,
     goldMul: 2.2,
-    xpMul: 2.2,
   },
   swarmling: {
     id: 'swarmling',
@@ -89,7 +85,6 @@ export const ENEMIES = {
     flags: 0,
     preferredRange: 0,
     goldMul: 0.4,
-    xpMul: 0.4,
   },
   spitter: {
     id: 'spitter',
@@ -104,7 +99,6 @@ export const ENEMIES = {
     flags: EF.Ranged,
     preferredRange: 260,
     goldMul: 1.3,
-    xpMul: 1.3,
   },
   warden: {
     id: 'warden',
@@ -119,7 +113,6 @@ export const ENEMIES = {
     flags: EF.Shielded,
     preferredRange: 0,
     goldMul: 1.6,
-    xpMul: 1.6,
   },
   mender: {
     id: 'mender',
@@ -135,7 +128,6 @@ export const ENEMIES = {
     // Hangs back at the edge of its heal radius so killing it takes a decision.
     preferredRange: 200,
     goldMul: 1.5,
-    xpMul: 1.5,
   },
   splitter: {
     id: 'splitter',
@@ -150,7 +142,6 @@ export const ENEMIES = {
     flags: EF.Splits,
     preferredRange: 0,
     goldMul: 1.4,
-    xpMul: 1.4,
   },
   wraith: {
     id: 'wraith',
@@ -165,7 +156,6 @@ export const ENEMIES = {
     flags: EF.Phasing,
     preferredRange: 0,
     goldMul: 1.3,
-    xpMul: 1.3,
   },
 } as const satisfies Record<string, EnemyDef>;
 

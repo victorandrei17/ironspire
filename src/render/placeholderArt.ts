@@ -136,7 +136,7 @@ registerPlaceholder('tower/shield', 128, (c, s) => {
   ring(c, s * 0.42, 4, 'rgba(159,232,255,0.85)');
 });
 
-// --- Projectiles & pickups ---------------------------------------------------
+// --- Projectiles -------------------------------------------------------------
 
 registerPlaceholder('proj/bolt', S_PROJ, (c, s) => {
   c.beginPath();
@@ -158,18 +158,6 @@ registerPlaceholder('proj/enemy_bolt', S_PROJ, (c, s) => {
 
 registerPlaceholder('proj/orb', S_PROJ * 1.4, (c, s) => {
   circle(c, s * 0.3, '#9fe8ff', '#1e4a5e');
-});
-
-registerPlaceholder('pickup/gold', 24, (c, s) => {
-  circle(c, s * 0.3, '#f2c14e', '#6b4c0d');
-  c.fillStyle = '#fff0c0';
-  c.beginPath();
-  c.arc(-s * 0.08, -s * 0.08, s * 0.08, 0, Math.PI * 2);
-  c.fill();
-});
-
-registerPlaceholder('pickup/xp', 24, (c, s) => {
-  diamond(c, s * 0.5, s * 0.62, '#4ea8f2', '#123a5e');
 });
 
 // --- FX ----------------------------------------------------------------------
@@ -220,7 +208,7 @@ registerPlaceholder('ui/up_hp', UI, glyph('❤', '#e2564d'));
 registerPlaceholder('ui/up_regen', UI, glyph('✚', '#7fe0a0'));
 registerPlaceholder('ui/up_critchance', UI, glyph('✦', '#4ea8f2'));
 registerPlaceholder('ui/up_critdmg', UI, glyph('✸', '#a86ff0'));
-registerPlaceholder('ui/up_pickup', UI, glyph('◈', '#f2c14e'));
+registerPlaceholder('ui/up_gold', UI, glyph('◈', '#f2c14e'));
 registerPlaceholder('ui/card_offense', UI, glyph('⚔', '#e2564d'));
 registerPlaceholder('ui/card_defense', UI, glyph('🛡', '#4ea8f2'));
 registerPlaceholder('ui/card_economy', UI, glyph('🪙', '#f2c14e'));

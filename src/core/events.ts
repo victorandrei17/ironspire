@@ -13,25 +13,24 @@ export const EV = {
   TowerDamaged: 3,
   TowerDied: 4,
   GoldChanged: 5,
-  XpChanged: 6,
-  LevelUp: 7,
-  CardOffered: 8,
-  CardPicked: 9,
-  UpgradeBought: 10,
-  BossSpawned: 11,
-  BossKilled: 12,
-  RunStarted: 13,
-  RunEnded: 14,
-  SceneChanged: 15,
-  Shake: 16,
-  Sfx: 17,
+  LevelUp: 6,
+  CardOffered: 7,
+  CardPicked: 8,
+  UpgradeBought: 9,
+  BossSpawned: 10,
+  BossKilled: 11,
+  RunStarted: 12,
+  RunEnded: 13,
+  SceneChanged: 14,
+  Shake: 15,
+  Sfx: 16,
 } as const;
 
 export type EventType = (typeof EV)[keyof typeof EV];
 
 export type Listener = (a: number, b: number, c: number) => void;
 
-const EVENT_COUNT = 18;
+const EVENT_COUNT = 17;
 
 /**
  * Fixed-size bucket-per-event bus. Listener arrays are created once at

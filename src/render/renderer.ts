@@ -65,7 +65,6 @@ export class Renderer {
     // Hazards sit on the floor, under everything that stands on it.
     this.drawHazards(world);
     this.drawShadows(world, alpha);
-    this.drawLayer(world.pickups, alpha);
 
     if (world.showRange) this.drawRangeRing(world);
 

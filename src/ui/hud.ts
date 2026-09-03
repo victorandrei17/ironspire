@@ -6,6 +6,7 @@ import { fmt } from '../core/format.ts';
 import { PATTERN_INFO } from '../data/waves.ts';
 import { haptic, HAPTIC } from '../platform/haptics.ts';
 import { t } from '../data/strings.ts';
+import { BAL } from '../data/balance.ts';
 
 const POLICY_KEYS = [
   'policy.closest',
@@ -27,8 +28,8 @@ export class Hud {
 
   private readonly hpFill: HTMLDivElement;
   private readonly hpText: HTMLSpanElement;
-  private readonly xpFill: HTMLDivElement;
-  private readonly levelText: HTMLSpanElement;
+  private readonly cardFill: HTMLDivElement;
+  private readonly cardText: HTMLSpanElement;
   private readonly waveText: HTMLSpanElement;
   private readonly goldText: HTMLSpanElement;
   private readonly policyBtn: HTMLButtonElement;
@@ -61,10 +62,12 @@ export class Hud {
     this.hpFill = el('div', 'bar-fill hp-fill', hpTrack);
     this.hpText = el('span', 'bar-label', hpRow);
 
-    const xpRow = el('div', 'bar-row', bars);
-    const xpTrack = el('div', 'bar-track xp-track', xpRow);
-    this.xpFill = el('div', 'bar-fill xp-fill', xpTrack);
-    this.levelText = el('span', 'bar-label', xpRow);
+    // Was the XP bar. Now it counts down waves to the next card offer, which
+    // is the only thing the player can still anticipate on this axis.
+    const cardRow = el('div', 'bar-row', bars);
+    const cardTrack = el('div', 'bar-track card-track', cardRow);
+    this.cardFill = el('div', 'bar-fill card-fill', cardTrack);
+    this.cardText = el('span', 'bar-label', cardRow);
 
     const purse = el('div', 'hud-purse', this.root);
     this.goldText = el('span', 'gold', purse);
@@ -103,9 +106,10 @@ export class Hud {
     // Colour shift below a quarter health: readable at a glance, no text needed.
     setClass(this.hpFill, 'critical', hpPct < 0.25);
 
-    const xpPct = Math.max(0, Math.min(1, run.xp / Math.max(1, run.xpToNext)));
-    setVar(this.xpFill, '--p', (xpPct * 100).toFixed(1) + '%');
-    setText(this.levelText, `${t('hud.level')} ${run.level}`);
+    const every = Math.max(1, BAL.progression.cardEveryWaves);
+    const left = Math.max(0, run.nextCardWave - run.wavesCleared);
+    setVar(this.cardFill, '--p', (((every - left) / every) * 100).toFixed(1) + '%');
+    setText(this.cardText, `${t('hud.cardIn')} ${left}`);
 
     setText(this.waveText, `${t('hud.wave')} ${Math.max(1, run.wave)}`);
     setText(this.goldText, `🪙 ${fmt(run.gold)}`);

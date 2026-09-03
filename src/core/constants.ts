@@ -30,7 +30,6 @@ export const CELL_SIZE = 64;
 export const ENEMY_CAP = 400;
 export const PROJ_CAP = 800;
 export const PARTICLE_CAP = 1200;
-export const PICKUP_CAP = 300;
 export const DMGNUM_CAP = 120;
 
 export const TARGETING_HZ = 10;

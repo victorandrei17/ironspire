@@ -1,6 +1,6 @@
 import { el, setText, setClass, show } from './dom.ts';
 import type { RunState } from '../core/state.ts';
-import type { TowerStats } from '../entities/tower.ts';
+import { ST, type TowerStats } from '../entities/tower.ts';
 import { UPGRADES } from '../data/upgrades.ts';
 import { costOf, isMaxed, buyUpgrade, buyMax, maxAffordable } from '../systems/upgrades.ts';
 import { fmt } from '../core/format.ts';
@@ -43,6 +43,14 @@ export class UpgradePanel {
     /** Talent-discounted price multiplier, read fresh on every refresh. */
     private readonly costMult: () => number,
     private readonly onNextWave: () => void,
+    /**
+     * Called after any purchase, with the tower's max HP from before it.
+     *
+     * Buying VIDA heals by the amount it adds — the same rule the hp_up card
+     * has always had. Without it the button is a trap mid-wave: it raises the
+     * ceiling while the player is dying under it, which is when they press it.
+     */
+    private readonly onBought: (previousMaxHp: number) => void,
   ) {
     this.root = el('div', 'upgrades', parent);
 
@@ -101,10 +109,14 @@ export class UpgradePanel {
 
   private buy(idx: number): void {
     const mult = this.costMult();
+    const beforeMaxHp = this.stats.get(ST.HpMax);
     const bought = this.maxMode
       ? buyMax(this.run, this.stats, idx, mult) > 0
       : buyUpgrade(this.run, this.stats, idx, mult);
-    if (bought) haptic(HAPTIC.Light);
+    if (bought) {
+      haptic(HAPTIC.Light);
+      this.onBought(beforeMaxHp);
+    }
   }
 
   /** Drives auto-repeat. Called from the fixed tick so the rate is stable. */

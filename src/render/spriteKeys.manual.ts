@@ -35,8 +35,6 @@ export type TowerSpriteKey = 'tower/base' | 'tower/cannon' | 'tower/core' | 'tow
 
 export type ProjectileSpriteKey = 'proj/bolt' | 'proj/enemy_bolt' | 'proj/orb';
 
-export type PickupSpriteKey = 'pickup/gold' | 'pickup/xp';
-
 export type FxSpriteKey =
   | 'fx/spark'
   | 'fx/ring'
@@ -52,7 +50,7 @@ export type UiSpriteKey =
   | 'ui/up_regen'
   | 'ui/up_critchance'
   | 'ui/up_critdmg'
-  | 'ui/up_pickup'
+  | 'ui/up_gold'
   | 'ui/card_offense'
   | 'ui/card_defense'
   | 'ui/card_economy'
@@ -66,7 +64,6 @@ export type ManualSpriteKey =
   | BossSpriteKey
   | TowerSpriteKey
   | ProjectileSpriteKey
-  | PickupSpriteKey
   | FxSpriteKey
   | UiSpriteKey;
 
@@ -88,7 +85,6 @@ export function listManualSpriteKeys(): ManualSpriteKey[] {
   }
   out.push('tower/base', 'tower/cannon', 'tower/core', 'tower/shield');
   out.push('proj/bolt', 'proj/enemy_bolt', 'proj/orb');
-  out.push('pickup/gold', 'pickup/xp');
   out.push('fx/spark', 'fx/ring', 'fx/burst', 'fx/smoke', 'fx/telegraph_circle');
   out.push(
     'ui/up_damage',
@@ -98,7 +94,7 @@ export function listManualSpriteKeys(): ManualSpriteKey[] {
     'ui/up_regen',
     'ui/up_critchance',
     'ui/up_critdmg',
-    'ui/up_pickup',
+    'ui/up_gold',
     'ui/card_offense',
     'ui/card_defense',
     'ui/card_economy',

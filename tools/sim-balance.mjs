@@ -56,12 +56,11 @@ const BAL = {
   hpGrowthLate: numField(balanceSrc, 'hpGrowthLate'),
   goldBase: numField(balanceSrc, 'goldBase'),
   goldGrowth: numField(balanceSrc, 'goldGrowth'),
-  xpBase: numField(balanceSrc, 'xpBase'),
-  xpGrowth: numField(balanceSrc, 'xpGrowth'),
   gap: numField(balanceSrc, 'gap'),
   dmgGrowth: numField(balanceSrc, 'dmgGrowth'),
   bossEvery: numField(balanceSrc, 'every'),
   bossHpMult: numField(balanceSrc, 'hpMult'),
+  bossHpMultGrowth: numField(balanceSrc, 'hpMultGrowth'),
   bossGoldMult: numField(balanceSrc, 'goldMult'),
   towerDmg: numField(balanceSrc, 'dmg'),
   towerRate: numField(balanceSrc, 'fireRate'),
@@ -69,18 +68,9 @@ const BAL = {
   iframes: numField(balanceSrc, 'iframes'),
   critChance: numField(balanceSrc, 'critChance'),
   critMult: numField(balanceSrc, 'critMult'),
-  xpLevelBase: numField(balanceSrc, 'xpBase'),
+  cardEveryWaves: numField(balanceSrc, 'cardEveryWaves'),
+  startGold: numField(balanceSrc, 'startGold'),
 };
-
-// The progression block re-uses the name `xpBase`; take the second occurrence.
-{
-  const all = [...balanceSrc.matchAll(/xpBase:\s*(-?[0-9.]+)/g)].map((m) => Number(m[1]));
-  BAL.xpDropBase = all[0] ?? 2;
-  BAL.xpLevelBase = all[1] ?? 12;
-  const growths = [...balanceSrc.matchAll(/xpGrowth:\s*(-?[0-9.]+)/g)].map((m) => Number(m[1]));
-  BAL.xpDropGrowth = growths[0] ?? 1.075;
-  BAL.xpLevelGrowth = growths[1] ?? 1.18;
-}
 
 /** Upgrade table, parsed from the same source the game ships. */
 const UPGRADES = [...upgradesSrc.matchAll(
@@ -107,9 +97,10 @@ const enemyHp = (w) =>
     ? BAL.hpBase * BAL.hpGrowth ** (w - 1)
     : BAL.hpBase * BAL.hpGrowth ** (BAL.hpSoftCapWave - 1) * BAL.hpGrowthLate ** (w - BAL.hpSoftCapWave);
 const goldDrop = (w) => BAL.goldBase * BAL.goldGrowth ** (w - 1);
-const xpDrop = (w) => BAL.xpDropBase * BAL.xpDropGrowth ** (w - 1);
-const xpToNext = (lvl) => Math.floor(BAL.xpLevelBase * BAL.xpLevelGrowth ** (lvl - 1));
 const isBossWave = (w) => w % BAL.bossEvery === 0;
+/** Mirror of `bossHpMult` in src/data/waves.ts. */
+const bossHpMult = (w) =>
+  BAL.bossHpMult * BAL.bossHpMultGrowth ** (Math.max(1, Math.floor(w / BAL.bossEvery)) - 1);
 
 function mulberry32(seed) {
   let s = seed >>> 0;
@@ -158,7 +149,24 @@ function policyGreedy(state) {
   return best;
 }
 
+/**
+ * Damage first, but buy VIDA when the tower is hurt. The ordinary player.
+ *
+ * This is the representative policy, and it replaced 'tudo em dano' when cards
+ * stopped arriving every level. That policy never buys defence at all; it used
+ * to survive anyway because a card every level handed it HP for free, so it
+ * silently stood in for a normal player. With cards on a slow cadence it models
+ * only a pure glass cannon, which no real first-run player is — it stays in the
+ * report as the floor, but the band is measured against this.
+ */
+function policyBeginner(state) {
+  const hpIdx = UPGRADES.findIndex((u) => u.id === 'hp');
+  if (state.hp / state.hpMax < 0.6 && hpIdx >= 0) return hpIdx;
+  return 0;
+}
+
 const POLICIES = [
+  { name: 'iniciante', pick: policyBeginner },
   { name: 'tudo em dano', pick: policyDamage },
   { name: 'espalhado', pick: policySpread },
   { name: 'guloso', pick: policyGreedy },
@@ -174,9 +182,7 @@ function makeState() {
   return {
     levels: new Array(UPGRADES.length).fill(0),
     gold: 0,
-    xp: 0,
     level: 1,
-    xpNext: xpToNext(1),
     hp: BAL.towerHp,
     hpMax: BAL.towerHp,
     purchases: 0,
@@ -212,6 +218,11 @@ function dps(state) {
   return dmg * rate * (1 + crit * (critMul - 1));
 }
 
+/** Gold multiplier: base 1 plus the OURO upgrade's additive levels. */
+function goldMul(state) {
+  return 1 + addOf(state, 'gold');
+}
+
 function maxHp(state) {
   return (
     (BAL.towerHp * (1 + state.cardHpPct) * mulOf(state, 'hp') + addOf(state, 'hp')) *
@@ -221,6 +232,14 @@ function maxHp(state) {
 
 /** Rough effective-DPS (or effective-HP) delta from one more level of `i`. */
 function marginalValue(state, i, survivalPressure) {
+  // OURO buys nothing this instant; it buys everything later. Valued as the
+  // extra income it produces, converted at the DPS the player already owns —
+  // without this the greedy policy never buys income and the sim would report a
+  // wall the real optimiser does not hit.
+  if (UPGRADES[i].id === 'gold') {
+    const extra = UPGRADES[i].perLevel / goldMul(state);
+    return Math.max(1e-9, (survivalPressure ? maxHp(state) : dps(state)) * extra * 0.6);
+  }
   const before = survivalPressure ? maxHp(state) + addOf(state, 'regen') * 20 : dps(state);
   state.levels[i]++;
   const after = survivalPressure ? maxHp(state) + addOf(state, 'regen') * 20 : dps(state);
@@ -237,58 +256,105 @@ function marginalValue(state, i, survivalPressure) {
  * so some enemies always get through while others are still being killed.
  * Stepping through the wave reproduces that and gives a smooth curve to tune.
  */
-function fightWave(state, wave, count, hp, waveHp) {
+function fightWave(state, wave, count, hp, bossHp) {
   const STEP = 0.25;
   const dmgPerSec = dps(state);
-  const killPerSec = dmgPerSec / Math.max(1e-6, hp);
   const incomingPerContact = ENEMY_DPS_BASE * BAL.dmgGrowth ** (wave - 1);
   const regen = addOf(state, 'regen');
   const groups = 3;
   const groupDelay = 3;
 
+  // Bodies are tracked in three bands, because the two crossings matter
+  // separately: the tower shoots everything inside the range ring, and takes
+  // damage only from what has reached its wall. An earlier version collapsed
+  // the two into one arrival and read ~50% more waves than the real build.
   let spawned = 0;
-  let walking = 0; // alive, still crossing the arena
-  let contact = 0; // alive, hitting the tower
-  let remainingHp = waveHp;
-  let t = 0;
-  const arrivals = [];
+  let walking = 0;
+  let inRange = 0;
+  let contact = 0;
+  const entering = [];
+  const reaching = [];
 
-  while (remainingHp > 0 && t < 600) {
-    // Release groups on schedule.
+  // The boss is its own body: it carries most of a boss wave's HP, so folding
+  // it into the swarm made the wave finishable by killing the escort alone.
+  let bossLeft = bossHp;
+  let bossBand = bossHp > 0 ? 'walking' : 'dead';
+  const bossEnterAt = WALK_IN_SECONDS;
+  let bossReachAt = Infinity;
+
+  let t = 0;
+  while (t < 600) {
     const dueGroups = Math.min(groups, Math.floor(t / groupDelay) + 1);
     const due = Math.round((count * dueGroups) / groups);
     if (due > spawned) {
       const n = due - spawned;
       spawned = due;
       walking += n;
-      arrivals.push({ at: t + WALK_IN_SECONDS, n });
+      entering.push({ at: t + WALK_IN_SECONDS, n });
     }
-    // Arrivals reach the tower.
-    for (const a of arrivals) {
-      if (a.n > 0 && t >= a.at) {
-        const moved = Math.min(a.n, walking);
+    for (const e of entering) {
+      if (e.n > 0 && t >= e.at) {
+        const moved = Math.min(e.n, walking);
         walking -= moved;
-        contact += moved;
-        a.n = 0;
+        inRange += moved;
+        reaching.push({ at: t + RANGE_TO_TOWER_SECONDS, n: moved });
+        e.n = 0;
       }
     }
+    for (const r of reaching) {
+      if (r.n > 0 && t >= r.at) {
+        const moved = Math.min(r.n, inRange);
+        inRange -= moved;
+        contact += moved;
+        r.n = 0;
+      }
+    }
+    if (bossBand === 'walking' && t >= bossEnterAt) {
+      bossBand = 'inRange';
+      bossReachAt = t + RANGE_TO_TOWER_SECONDS;
+    } else if (bossBand === 'inRange' && t >= bossReachAt) {
+      bossBand = 'contact';
+    }
 
-    // Damage out. Kills come off contact first (they are closest).
-    const killed = Math.min(killPerSec * STEP, contact + walking);
-    const fromContact = Math.min(contact, killed);
-    contact -= fromContact;
-    walking -= killed - fromContact;
-    remainingHp -= dmgPerSec * STEP;
+    // Damage out, spent on what is inside the ring, closest first.
+    let budget = dmgPerSec * STEP;
+    const spend = (bodies) => {
+      const affordable = Math.min(bodies, budget / hp);
+      budget -= affordable * hp;
+      return affordable;
+    };
+    contact -= spend(contact);
+    if (budget > 0 && bossBand === 'contact') {
+      const dealt = Math.min(budget, bossLeft);
+      bossLeft -= dealt;
+      budget -= dealt;
+      if (bossLeft <= 0) bossBand = 'dead';
+    }
+    inRange -= spend(inRange);
+    if (budget > 0 && bossBand === 'inRange') {
+      const dealt = Math.min(budget, bossLeft);
+      bossLeft -= dealt;
+      budget -= dealt;
+      if (bossLeft <= 0) bossBand = 'dead';
+    }
+
+    if (spawned >= count && walking < 0.001 && inRange < 0.001 && contact < 0.001 && bossBand === 'dead') {
+      return { survived: true, time: t };
+    }
 
     // Damage in, capped by i-frames: contact is a switch, not a multiplier.
-    if (contact > 0.5) state.hp -= incomingPerContact * STEP;
+    if (contact > 0.5 || bossBand === 'contact') state.hp -= incomingPerContact * STEP;
     state.hpMax = maxHp(state);
     state.hp = Math.min(state.hpMax, state.hp + regen * STEP);
     if (state.hp <= 0) return { survived: false, time: t };
 
     t += STEP;
   }
-  return { survived: true, time: t };
+  // A wave that cannot be cleared IS the wall, even with the tower still alive:
+  // a player with enough HP and regen to outlast one contact could otherwise
+  // stall forever on a wave they could never finish, and the tool would report
+  // no wall at all.
+  return { survived: false, time: t };
 }
 
 /** One run. Returns the wave the tower died on. */
@@ -303,7 +369,7 @@ function simulateRun(seed, meta) {
   // every prestiged run starting at a fraction of its own health bar.
   state.metaDmgMul = meta.dmgMul;
   state.metaHpMul = meta.hpMul;
-  state.gold = meta.startGold;
+  state.gold = BAL.startGold + meta.startGold;
   state.hpMax = maxHp(state);
   state.hp = state.hpMax;
 
@@ -313,21 +379,18 @@ function simulateRun(seed, meta) {
     const count = enemyCount(wave);
     const hp = enemyHp(wave);
     const boss = isBossWave(wave);
-    const waveHp = count * hp + (boss ? hp * BAL.bossHpMult : 0);
 
-    const outcome = fightWave(state, wave, count, hp, waveHp);
+    const outcome = fightWave(state, wave, count, hp, boss ? hp * bossHpMult(wave) : 0);
     totalTime += outcome.time + BAL.gap;
     if (!outcome.survived) {
       return { wave, time: totalTime, gold: state.gold, level: state.level };
     }
 
-    // Rewards.
-    state.gold += count * goldDrop(wave) * (boss ? BAL.bossGoldMult / 8 : 1);
-    state.xp += count * xpDrop(wave);
-    while (state.xp >= state.xpNext) {
-      state.xp -= state.xpNext;
+    // Rewards. Every coin lands: gold is credited on death, so unlike the
+    // dropped-pickup model nothing is lost to the arena floor.
+    state.gold += count * goldDrop(wave) * goldMul(state) * (boss ? BAL.bossGoldMult / 8 : 1);
+    if (wave % BAL.cardEveryWaves === 0) {
       state.level++;
-      state.xpNext = xpToNext(state.level);
       // A card pick, averaged: the offer is 60% commons, so the expected pick
       // is a common-sized stat bump. Modelling exact card choice would need the
       // full offer machinery for no extra signal about the CURVE.
@@ -346,8 +409,12 @@ function simulateRun(seed, meta) {
       const cost = upgradeCost(u, state.levels[idx]);
       if (state.gold < cost) break;
       state.gold -= cost;
+      const beforeMaxHp = maxHp(state);
       state.levels[idx]++;
       state.purchases++;
+      // Buying VIDA heals by what it adds, mirroring the rule in the game.
+      state.hpMax = maxHp(state);
+      state.hp = Math.min(state.hpMax, state.hp + Math.max(0, state.hpMax - beforeMaxHp));
       if (++guard > 5000) break;
     }
   }
@@ -364,13 +431,20 @@ function simulateRun(seed, meta) {
  * survival — the simulated player reached wave 15 while the real one died at 5.
  */
 const GRUNT_DAMAGE = 4;
-const ENEMY_DPS_BASE = GRUNT_DAMAGE / numField(balanceSrc, 'iframes');
+const MIX = 1.8;
+const ENEMY_DPS_BASE = (GRUNT_DAMAGE * MIX) / numField(balanceSrc, 'iframes');
 
 /**
  * Seconds from the spawn ring to the tower for a front-rank enemy:
  * (R_SPAWN - range) / speed, roughly (560 - 300) / 55.
  */
 const WALK_IN_SECONDS = 4.7;
+
+/**
+ * Seconds from crossing the range ring to touching the tower: range / speed,
+ * roughly 300 / 55. The tower shoots for this whole stretch and takes nothing.
+ */
+const RANGE_TO_TOWER_SECONDS = 5.5;
 
 let POLICIES_CURRENT = POLICIES[0];
 
@@ -451,7 +525,7 @@ if (CHECK) {
    *  2. No policy runs forever — a curve with no wall is a broken curve.
    *  3. Even careless play clears a few waves — the opening cannot be a wall.
    */
-  const REPRESENTATIVE = 'tudo em dano';
+  const REPRESENTATIVE = 'iniciante';
   let failed = 0;
 
   for (const scenario of SCENARIOS) {

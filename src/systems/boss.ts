@@ -158,7 +158,6 @@ export class BossSystem {
           if (j < 0) break;
           e.applyArchetype(j, swarmDef);
           e.goldValue[j] = world.splitTemplate.gold;
-          e.xpValue[j] = world.splitTemplate.xp;
         }
         break;
       }

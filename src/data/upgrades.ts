@@ -16,7 +16,17 @@ import { ST } from './stats.ts';
  * and it has to keep up with enemy HP growing exponentially. The gap is not a
  * tuning problem, it is a shape problem — by wave 100 the additive curve is off
  * by six orders of magnitude. The stats that must track HP compound; the ones
- * meant to stay bounded (range, pickup radius, crit chance) stay additive.
+ * meant to stay bounded (range, gold bonus, crit chance) stay additive.
+ *
+ * Exactly ONE stat compounds, and that is deliberate. Every `mult` upgrade adds
+ * its own exponent to the player's power curve (income and cost are both
+ * geometric, so levels grow linearly and a multiplier per level is an
+ * exponential in waves). With damage, fire rate AND crit damage all
+ * compounding, an optimiser's DPS grew ~18% per wave against enemy HP at 9.5%:
+ * no wall existed at all for anyone who spread across the three. Keeping the
+ * other two additive turns that advantage back into a constant factor instead
+ * of an exponent, which is what makes the wall land in the same place for
+ * everyone.
  */
 export type UpgradeKind = 'flat' | 'pctOfBase' | 'mult';
 
@@ -44,7 +54,7 @@ export const UPGRADES = [
     icon: 'ui/up_damage',
     stat: ST.Dmg,
     kind: 'mult',
-    perLevel: 1.075,
+    perLevel: 1.085,
     costBase: 20,
     costGrowth: 1.115,
     maxLevel: 0,
@@ -55,12 +65,12 @@ export const UPGRADES = [
     name: 'CADÊNCIA',
     icon: 'ui/up_rate',
     stat: ST.FireRate,
-    kind: 'mult',
-    perLevel: 1.035,
+    kind: 'pctOfBase',
+    perLevel: 0.06,
     costBase: 25,
     costGrowth: 1.125,
     maxLevel: 0,
-    blurb: '×1.035',
+    blurb: '+6%',
   },
   {
     id: 'range',
@@ -119,24 +129,29 @@ export const UPGRADES = [
     name: 'D.CRÍT',
     icon: 'ui/up_critdmg',
     stat: ST.CritMult,
-    kind: 'mult',
-    perLevel: 1.05,
+    kind: 'flat',
+    perLevel: 0.07,
     costBase: 70,
     costGrowth: 1.15,
     maxLevel: 0,
-    blurb: '×1.05',
+    blurb: '+0.07x',
   },
   {
-    id: 'pickup',
-    name: 'COLETA',
-    icon: 'ui/up_pickup',
-    stat: ST.PickupRadius,
+    id: 'gold',
+    name: 'OURO',
+    icon: 'ui/up_gold',
+    stat: ST.GoldMult,
+    /**
+     * Additive, and the cost climbs faster than any other button: this one buys
+     * income, so it pays for its own next level. Compounding it as well would
+     * turn the shop into a single correct answer.
+     */
     kind: 'flat',
-    perLevel: 14,
-    costBase: 40,
-    costGrowth: 1.11,
+    perLevel: 0.05,
+    costBase: 60,
+    costGrowth: 1.16,
     maxLevel: 0,
-    blurb: '+14',
+    blurb: '+5%',
   },
 ] as const satisfies readonly UpgradeDef[];
 

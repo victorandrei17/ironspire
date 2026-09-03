@@ -3,11 +3,6 @@ import type { World } from '../entities/world.ts';
 import { BAL } from '../data/balance.ts';
 import { bus, EV } from '../core/events.ts';
 
-/** XP needed to reach the next level (SPEC §7.3). */
-export function xpToNext(level: number): number {
-  return Math.floor(BAL.progression.xpBase * Math.pow(BAL.progression.xpGrowth, level - 1));
-}
-
 /** Cores earned for a run that reached `waveMax` (SPEC §2.3). */
 export function coresForRun(waveMax: number, coreMult = 1): number {
   if (waveMax <= 0) return 0;
@@ -16,27 +11,37 @@ export function coresForRun(waveMax: number, coreMult = 1): number {
   );
 }
 
-/**
- * Level-ups and the card offer (SPEC §12.3 step 15).
- *
- * Levels are BANKED rather than consumed immediately: a burst of XP from a boss
- * can cross two thresholds in one tick, and the player is owed both card picks.
- */
-export function updateProgression(run: RunState): void {
-  let levelled = false;
-  // A loop, not an if: one pickup can cross several thresholds at once.
-  while (run.xp >= run.xpToNext) {
-    run.xp -= run.xpToNext;
-    run.level++;
-    run.pendingCards++;
-    run.xpToNext = xpToNext(run.level);
-    levelled = true;
-  }
-  if (levelled) bus.emit(EV.LevelUp, run.level, run.pendingCards);
+/** Waves still to clear before the next card offer. Never below zero. */
+export function wavesToNextCard(run: RunState): number {
+  return Math.max(0, run.nextCardWave - run.wavesCleared);
 }
 
 /**
- * The "hit stop" on level-up: time crawls for a moment before the card screen.
+ * Card offers, on a fixed wave cadence (SPEC §7.3).
+ *
+ * REPLACES the XP curve. Cards are a light bonus rather than the engine of a
+ * run — the gold upgrades are the engine — so the offer arrives every
+ * `cardEveryWaves` cleared waves and owes nothing to how well the player
+ * fought.
+ *
+ * Offers are BANKED, not consumed on the spot: `wavesCleared` can cross two
+ * thresholds while a card screen is already open, and the player is owed both.
+ */
+export function updateProgression(run: RunState): void {
+  let earned = false;
+  const every = Math.max(1, BAL.progression.cardEveryWaves);
+  // A loop, not an if, for the same reason the XP version had one.
+  while (run.wavesCleared >= run.nextCardWave) {
+    run.nextCardWave += every;
+    run.level++;
+    run.pendingCards++;
+    earned = true;
+  }
+  if (earned) bus.emit(EV.LevelUp, run.level, run.pendingCards);
+}
+
+/**
+ * The "hit stop" before the card screen: time crawls for a moment.
  * Returns the timeScale the loop should use, or -1 when nothing is happening.
  */
 export class LevelUpEffect {

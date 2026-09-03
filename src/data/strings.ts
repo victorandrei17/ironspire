@@ -14,6 +14,7 @@ export const STRINGS_PT = {
 
   'hud.wave': 'ONDA',
   'hud.level': 'Nv.',
+  'hud.cardIn': 'CARTA EM',
   'hud.nextWave': 'PRÓXIMA ONDA',
 
   'policy.closest': 'PERTO',
@@ -78,7 +79,7 @@ export const STRINGS_PT = {
   'quality.reduced': 'Qualidade reduzida para manter a fluidez',
 
   'tutorial.upgrades': 'Toque para comprar. Segure para comprar em sequência.',
-  'tutorial.cards': 'Suba de nível para escolher uma carta.',
+  'tutorial.cards': 'Limpe ondas para ganhar cartas.',
   'tutorial.nextWave': 'Chame a próxima onda mais cedo para ganhar ouro extra.',
 } as const;
 
@@ -97,6 +98,7 @@ export const STRINGS_EN: Partial<Record<StringKey, string>> = {
 
   'hud.wave': 'WAVE',
   'hud.level': 'Lv.',
+  'hud.cardIn': 'CARD IN',
   'hud.nextWave': 'NEXT WAVE',
 
   'policy.closest': 'CLOSE',
@@ -161,7 +163,7 @@ export const STRINGS_EN: Partial<Record<StringKey, string>> = {
   'quality.reduced': 'Quality reduced to keep things smooth',
 
   'tutorial.upgrades': 'Tap to buy. Hold to keep buying.',
-  'tutorial.cards': 'Level up to pick a card.',
+  'tutorial.cards': 'Clear waves to earn cards.',
   'tutorial.nextWave': 'Call the next wave early for bonus gold.',
 };
 

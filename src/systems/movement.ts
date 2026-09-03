@@ -1,7 +1,6 @@
 import type { EnemyPool } from '../entities/enemyPool.ts';
 import type { ProjectilePool } from '../entities/projectilePool.ts';
 import type { ParticlePool } from '../entities/particlePool.ts';
-import type { PickupPool } from '../entities/pickupPool.ts';
 import type { DamageNumberPool } from '../entities/damageNumberPool.ts';
 import { R_DESPAWN } from '../core/constants.ts';
 
@@ -100,48 +99,3 @@ export function integrateDamageNumbers(d: DamageNumberPool, dt: number): void {
   }
 }
 
-/** Pickups drift, then home in once the magnet grabs them (SPEC §7.1). */
-export function integratePickups(
-  pk: PickupPool,
-  dt: number,
-  towerX: number,
-  towerY: number,
-  magnetRadius: number,
-): void {
-  const magnet2 = magnetRadius * magnetRadius;
-  for (let i = 0; i < pk.count; i++) {
-    if (pk.alive[i] === 0) continue;
-    pk.prevX[i] = pk.x[i] ?? 0;
-    pk.prevY[i] = pk.y[i] ?? 0;
-
-    const settle = pk.settleT[i] ?? 0;
-    if (settle > 0) {
-      pk.settleT[i] = settle - dt;
-      pk.vx[i] = (pk.vx[i] ?? 0) * 0.9;
-      pk.vy[i] = (pk.vy[i] ?? 0) * 0.9;
-    } else {
-      const dx = towerX - (pk.x[i] ?? 0);
-      const dy = towerY - (pk.y[i] ?? 0);
-      const d2 = dx * dx + dy * dy;
-      if (d2 <= magnet2) {
-        // Accelerating pull: slow start, fast finish, no sqrt until we must.
-        const d = Math.sqrt(d2) || 1;
-        const pull = 900 + (1 - d / magnetRadius) * 1400;
-        pk.vx[i] = (dx / d) * pull * 0.02 + (pk.vx[i] ?? 0) * 0.86;
-        pk.vy[i] = (dy / d) * pull * 0.02 + (pk.vy[i] ?? 0) * 0.86;
-      } else {
-        pk.vx[i] = (pk.vx[i] ?? 0) * 0.92;
-        pk.vy[i] = (pk.vy[i] ?? 0) * 0.92;
-      }
-    }
-
-    pk.x[i] = (pk.x[i] ?? 0) + (pk.vx[i] ?? 0) * dt;
-    pk.y[i] = (pk.y[i] ?? 0) + (pk.vy[i] ?? 0) * dt;
-    // Grow into full size over the pop-out arc.
-    const sc = pk.scale[i] ?? 1;
-    if (sc < 1) pk.scale[i] = Math.min(1, sc + dt * 4);
-    const life = (pk.life[i] ?? 0) - dt;
-    if (life <= 0) pk.free(i);
-    else pk.life[i] = life;
-  }
-}

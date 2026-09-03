@@ -43,8 +43,12 @@ export class RunState {
   /** Seconds elapsed in this run. */
   time = 0;
   gold = 0;
-  xp = 0;
-  xpToNext = 0;
+  /** Gold credited by kills during this tick, batched into one HUD event. */
+  goldTick = 0;
+  /** Waves fully cleared. Drives the card offer — there is no XP. */
+  wavesCleared = 0;
+  /** The next cleared-wave count that owes the player a card. */
+  nextCardWave = 0;
   level = 1;
   kills = 0;
   damageDealt = 0;
@@ -66,15 +70,16 @@ export class RunState {
     this.cardLevels = new Int32Array(cardCount);
   }
 
-  reset(seed: number, xpToNext: number, rerolls: number): void {
+  reset(seed: number, cardEveryWaves: number, rerolls: number): void {
     this.upgradeLevels.fill(0);
     this.cardLevels.fill(0);
     this.seed = seed;
     this.wave = 0;
     this.time = 0;
     this.gold = 0;
-    this.xp = 0;
-    this.xpToNext = xpToNext;
+    this.goldTick = 0;
+    this.wavesCleared = 0;
+    this.nextCardWave = cardEveryWaves;
     this.level = 1;
     this.kills = 0;
     this.damageDealt = 0;

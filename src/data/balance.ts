@@ -25,7 +25,6 @@ export const BAL = {
     projectiles: 1,
     pierce: 0,
     projSpeed: 900,
-    pickupRadius: 130,
     goldMult: 1.0,
     /** Fan spread between simultaneous projectiles, radians (12 deg). */
     spreadRad: (12 * Math.PI) / 180,
@@ -49,40 +48,36 @@ export const BAL = {
     countCap: 90,
     hpBase: 12,
     /**
-     * RETUNED from the 1.145 in SPEC §6.2, which the spec itself flags as a
-     * hypothesis. `npm run balance` showed 1.145 outran the player's power
-     * curve from wave one — every policy died around wave 6 to 8 and no amount
-     * of good play changed it. 1.10 keeps the player just behind the curve, so
-     * the wall is gradual and lands where the spec wants it (see PROGRESS).
+     * RETUNED twice. First from the 1.145 in SPEC §6.2 (which outran the
+     * player's power curve from wave one: every policy died around wave 6 to 8
+     * and no amount of good play changed it), then from 1.11 down to this when
+     * XP levels went away — a card every level used to add roughly 15% power
+     * per wave for free, and without it 1.11 put run one back at wave 8.
      */
-    hpGrowth: 1.11,
-    /**
-     * Why 1.145: combined with the player's power curve it produces a natural
-     * wall around waves 25-35 on run one, which is what pushes the player into
-     * the meta loop. This is a HYPOTHESIS to be retuned with telemetry after
-     * M6, not a truth.
-     */
+    hpGrowth: 1.095,
+    /** Where the late curve takes over, so waves 60+ have their own slope. */
     hpSoftCapWave: 60,
-    // Must stay BELOW hpGrowth or the "soft cap" would accelerate difficulty.
-    hpGrowthLate: 1.085,
+    /**
+     * NOW ABOVE `hpGrowth`, which reverses the original intent, and the reason
+     * is the wall itself. Income and cost are both geometric, so upgrade levels
+     * grow linearly and the compounding damage upgrade makes player DPS an
+     * exponential in waves. A late curve flatter than the early one therefore
+     * meant no wall at all past wave 60: `npm run balance` had the optimiser
+     * running to the simulation horizon and never dying. At 1.105 every policy
+     * finds its wall, and the ordinary player still lands inside the SPEC band.
+     */
+    hpGrowthLate: 1.105,
     speedBase: 1.0,
     speedGrowth: 1.004,
     speedCap: 1.6,
-    goldBase: 3,
-    /**
-     * Income has to grow at nearly the rate difficulty does. At the original
-     * 1.09 against hpGrowth 1.145 the player fell behind from wave one and no
-     * amount of good play could catch up — the simulator put every policy at
-     * wave 8 regardless of skill.
-     */
+    /** RAISED from 3 with the XP removal: see `run.startGold`. */
+    goldBase: 7,
     /**
      * Deliberately BELOW the upgrade cost growth (1.115). That gap is what
-     * creates a wall at all: with income growing as fast as cost, affordable
-     * levels grow linearly forever and the player never falls behind.
+     * creates the wall: with income growing as fast as cost, affordable levels
+     * would grow without bound and the player would never fall behind.
      */
     goldGrowth: 1.09,
-    xpBase: 2,
-    xpGrowth: 1.075,
     gap: 2.0,
     /**
      * Enemy damage multiplier per wave. SPEC §6.2 had no damage curve at all,
@@ -96,7 +91,19 @@ export const BAL = {
     earlyCallGoldBonus: 0.15,
   },
 
-  boss: { every: 10, hpMult: 14, goldMult: 25, xpMult: 20 },
+  boss: {
+    every: 10,
+    hpMult: 14,
+    /**
+     * Each boss is this much bigger than the one before, on top of the wave
+     * curve. Bosses ARE the wall — a run almost always ends on one — and a flat
+     * multiplier made every boss equally easy once the player was past the
+     * first, so the mid game had no shape. Compounding it keeps the wall moving
+     * with the player instead of being cleared once and forgotten.
+     */
+    hpMultGrowth: 1.22,
+    goldMult: 25,
+  },
 
   elite: {
     startWave: 8,
@@ -107,13 +114,34 @@ export const BAL = {
     scale: 1.35,
   },
 
-  /** XP needed for the next level: 12 * 1.18^(level-1) (SPEC §7.3). */
   progression: {
-    xpBase: 12,
-    xpGrowth: 1.18,
+    /**
+     * Waves cleared per card offer (SPEC §7.3).
+     *
+     * REPLACES the XP curve entirely. With every enemy in a wave dying anyway,
+     * XP was a second currency that only ever measured elapsed waves — so the
+     * game now measures elapsed waves directly. Cards are a light bonus on top
+     * of the gold upgrades, not the main progression, which is why the cadence
+     * is sparse: a run to wave 20 offers four of them.
+     */
+    cardEveryWaves: 5,
     /** Level-up hit-stop: timeScale drops to this for `slowMoSec`. */
     slowMoScale: 0.15,
     slowMoSec: 0.35,
+  },
+
+  run: {
+    /**
+     * Gold the run opens with.
+     *
+     * ADDED when cards stopped arriving every level: the opening used to be
+     * carried by free card power in waves 1-4, and without it the player spent
+     * the first three waves unable to afford anything at all. A flat purse
+     * fixes exactly that window — by wave 15 it is a rounding error, so unlike
+     * a bigger `goldBase` it does not inflate the late game or hand the
+     * optimiser a snowball.
+     */
+    startGold: 160,
   },
 
   /** Core reward at end of run: floor((waveMax / 4) ^ 1.6 * mult) (SPEC §2.3). */

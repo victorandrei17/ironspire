@@ -270,12 +270,12 @@ button.dim {
   }
 }
 
-.xp-track {
+.card-track {
   height: 8px;
 }
 
-.xp-fill {
-  background: linear-gradient(90deg, #7ac2ff, #4ea8f2);
+.card-fill {
+  background: linear-gradient(90deg, #c79bf5, #a86ff0);
 }
 
 .bar-label {

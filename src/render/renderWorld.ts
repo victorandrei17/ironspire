@@ -79,7 +79,6 @@ export type RenderWorld = {
   damageNumbers: NumberLayer;
   hazards: HazardLayer;
   projectiles: SpriteLayer;
-  pickups: SpriteLayer;
   particles: SpriteLayer;
   tower: TowerView;
   /** Camera shake offset in world units, already resolved for this frame. */

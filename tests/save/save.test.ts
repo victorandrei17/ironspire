@@ -189,6 +189,62 @@ describe('migrations (SPEC §15.3)', () => {
     expect(r.save.meta.talents).toEqual({});
   });
 
+  it('v1 -> v2 refunds every core spent on the removed pickup talent', () => {
+    const old = {
+      v: 1,
+      meta: { nucleos: 10, talents: { fortune_pickup: 3, war_dmg: 2 } },
+      stats: {},
+      prefs: {},
+      idle: {},
+      sig: '',
+    };
+    const r = migrate(old, NOW);
+    expect(r.steps).toBe(1);
+    expect(r.save.v).toBe(2);
+    expect(r.save.meta.talents.fortune_pickup).toBeUndefined();
+    expect(r.save.meta.talents.war_dmg).toBe(2);
+    // Ranks 0,1,2 of a costBase-6 talent on the shared 1.28 growth curve.
+    const spent = 6 + Math.floor(6 * 1.28) + Math.floor(6 * 1.28 * 1.28);
+    expect(r.save.meta.nucleos).toBe(10 + spent);
+  });
+
+  it('v1 -> v2 turns a mid-run XP snapshot into the wave cadence', () => {
+    const old = {
+      v: 1,
+      meta: {},
+      stats: {},
+      prefs: {},
+      idle: {},
+      run: {
+        seed: 5,
+        wave: 7,
+        time: 60,
+        gold: 30,
+        goldEarned: 30,
+        xp: 4,
+        xpToNext: 20,
+        level: 3,
+        kills: 40,
+        policy: 0,
+        pendingCards: 1,
+        rerollsLeft: 1,
+        waveMax: 7,
+        upgradeLevels: [1],
+        cardLevels: [0],
+        towerHp: 100,
+      },
+      sig: '',
+    };
+    const r = migrate(old, NOW);
+    const run = r.save.run;
+    expect(run).toBeDefined();
+    expect(run?.wavesCleared).toBe(6);
+    // Strictly ahead of what was cleared: resuming must not fire a card at once.
+    expect(run?.nextCardWave).toBeGreaterThan(6);
+    expect(run?.pendingCards).toBe(1);
+    expect((run as unknown as Record<string, unknown>).xp).toBeUndefined();
+  });
+
   it('rejects wrong types instead of letting them reach gameplay', () => {
     const bad = {
       v: 1,
@@ -283,8 +339,8 @@ describe('signature stability (regression)', () => {
       time: 30,
       gold: 100,
       goldEarned: 100,
-      xp: 3,
-      xpToNext: 14,
+      wavesCleared: 3,
+      nextCardWave: 5,
       level: 2,
       kills: 20,
       policy: 0,

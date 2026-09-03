@@ -13,6 +13,7 @@ import {
   DIGIT_CRIT,
   DIGIT_DAMAGE,
   DIGIT_HEAL,
+  DIGIT_GOLD,
 } from '../entities/damageNumberPool.ts';
 import { bus, EV } from '../core/events.ts';
 
@@ -218,12 +219,11 @@ export function killEnemy(world: World, run: RunState, i: number, rng: Rng): voi
   const x = e.x[i] ?? 0;
   const y = e.y[i] ?? 0;
   const gold = e.goldValue[i] ?? 0;
-  const xp = e.xpValue[i] ?? 0;
   const flags = e.flags[i] ?? 0;
   const isBoss = (flags & EF.Boss) !== 0;
 
   run.kills++;
-  spawnDrops(world, run, x, y, gold, xp, rng);
+  creditGold(world, run, x, y, gold);
   spawnDeathBurst(world, x, y, rng, isBoss || (flags & EF.Elite) !== 0);
 
   if (flags & EF.Splits) splitOnDeath(world, i, rng);
@@ -234,30 +234,26 @@ export function killEnemy(world: World, run: RunState, i: number, rng: Rng): voi
   if (isBoss) bus.emit(EV.BossKilled, x, y);
 }
 
-function spawnDrops(
-  world: World,
-  run: RunState,
-  x: number,
-  y: number,
-  gold: number,
-  xp: number,
-  rng: Rng,
-): void {
-  // One pickup per drop type, not one per coin: 90 deaths in a wave would drown
-  // the pickup pool and the eye alike.
-  const goldTotal = gold * run.waveGoldBonus * world.tower.stats.get(ST.GoldMult);
-  if (goldTotal > 0) {
-    const a = rng.angle();
-    const i = world.pickups.spawn(x, y, Math.cos(a) * 70, Math.sin(a) * 70, 0, goldTotal, 0);
-    // Pops out at half size and grows: reads as loot being ejected rather than
-    // a sprite blinking into existence.
-    if (i >= 0) world.pickups.scale[i] = 0.5;
-  }
-  if (xp > 0) {
-    const a = rng.angle();
-    const i = world.pickups.spawn(x, y, Math.cos(a) * 70, Math.sin(a) * 70, 1, xp, 1);
-    if (i >= 0) world.pickups.scale[i] = 0.5;
-  }
+/**
+ * Gold is credited on death, not dropped (SPEC §7.1).
+ *
+ * A tower that cannot move made the dropped coin a pure tax: the player could
+ * see gold they had no way to reach, and it expired. The floating number at the
+ * kill is what the coin sprite used to communicate; the balance of a run is
+ * unchanged except that nothing is lost to the arena floor any more.
+ *
+ * The credit is accumulated on `run.goldTick` rather than announced here:
+ * ninety deaths in one tick must not become ninety HUD updates. `rewards.ts`
+ * turns the tick's total into one event.
+ */
+function creditGold(world: World, run: RunState, x: number, y: number, gold: number): void {
+  const total = gold * run.waveGoldBonus * world.tower.stats.get(ST.GoldMult);
+  if (total <= 0) return;
+  run.gold += total;
+  run.goldTick += total;
+  // Below the hit, and smaller: the white damage number spawns at the same
+  // point on the same frame, and stacked digits read as garbage.
+  world.damageNumbers.spawn(x, y + 22, Math.round(total), DIGIT_GOLD, 0.7);
 }
 
 function spawnDeathBurst(world: World, x: number, y: number, rng: Rng, big: boolean): void {
@@ -305,7 +301,6 @@ function splitOnDeath(world: World, i: number, rng: Rng): void {
     e.attackInterval[j] = t.attackInterval;
     e.flags[j] = t.flags;
     e.goldValue[j] = t.gold;
-    e.xpValue[j] = t.xp;
   }
 }
 

@@ -11,7 +11,6 @@ import {
   enemySpeedMul,
   enemyDmgMul,
   goldDrop,
-  xpDrop,
   eliteChance,
   isBossWave,
   PATTERN,
@@ -20,6 +19,7 @@ import {
   PATTERN_WEIGHTS,
   PATTERN_START_WAVE,
   type WavePattern,
+  bossHpMult,
 } from '../data/waves.ts';
 import { R_SPAWN, ENEMY_CAP } from '../core/constants.ts';
 import { bus, EV } from '../core/events.ts';
@@ -57,13 +57,15 @@ export class Spawner {
   private speedMul = 1;
   private dmgMul = 1;
   private gold = 0;
-  private xp = 0;
 
   /** Enemies this wave has released but that are still alive somewhere. */
   released = 0;
   pattern: WavePattern = PATTERN.Ring;
   /** Spawns skipped because the pool was full. Rising = the caps are wrong. */
   skipped = 0;
+  /** The wave this schedule was rolled for; the boss curve reads it. */
+  private waveNo = 0;
+
   /** Index into BOSSES for this wave's boss, or -1. */
   bossIdx = -1;
   /** Handle of the boss once it has actually spawned, or -1. */
@@ -71,6 +73,7 @@ export class Spawner {
 
   /** Rolls the whole wave. `runSeed` plus the wave number decides everything. */
   beginWave(world: World, runSeed: number, wave: number): void {
+    this.waveNo = wave;
     const rng = new Rng(mixSeed(runSeed, wave));
     this.scheduled = 0;
     this.cursor = 0;
@@ -88,7 +91,6 @@ export class Spawner {
     const speedMul = enemySpeedMul(wave);
     const dmgMul = enemyDmgMul(wave);
     const gold = goldDrop(wave);
-    const xp = xpDrop(wave);
     const elite = eliteChance(wave);
 
     fillWeights(this.weights, wave);
@@ -160,14 +162,12 @@ export class Spawner {
       world.splitTemplate.attackInterval = swarmDef.attackInterval;
       world.splitTemplate.flags = swarmDef.flags;
       world.splitTemplate.gold = gold * swarmDef.goldMul;
-      world.splitTemplate.xp = xp * swarmDef.xpMul;
     }
 
     this.hp = hp;
     this.speedMul = speedMul;
     this.dmgMul = dmgMul;
     this.gold = gold;
-    this.xp = xp;
     bus.emit(EV.WaveStart, wave, this.pattern, total);
   }
 
@@ -204,14 +204,12 @@ export class Spawner {
 
     let hp = this.hp * def.hpMul;
     let goldValue = this.gold * def.goldMul;
-    let xpValue = this.xp * def.xpMul;
     let scale = def.scale;
     let flags = def.flags;
 
     if (elite) {
       hp *= BAL.elite.hpMult;
       goldValue *= BAL.elite.goldMult;
-      xpValue *= BAL.elite.goldMult;
       scale *= BAL.elite.scale;
       flags |= EF.Elite | (this.schedAffix[k] ?? 0);
     }
@@ -229,7 +227,6 @@ export class Spawner {
     world.enemies.scale[i] = scale;
     world.enemies.radius[i] = def.radius * scale;
     world.enemies.goldValue[i] = goldValue;
-    world.enemies.xpValue[i] = xpValue;
     this.released++;
   }
 
@@ -249,7 +246,7 @@ export class Spawner {
       y,
       0,
       ENEMY_LIST.length + this.bossIdx,
-      this.hp * BAL.boss.hpMult * bossDef.hpMul,
+      this.hp * bossHpMult(this.waveNo) * bossDef.hpMul,
       bossDef.radius,
     );
     if (i < 0) {
@@ -263,7 +260,6 @@ export class Spawner {
     world.enemies.flags[i] = EF.Boss;
     world.enemies.scale[i] = bossDef.scale;
     world.enemies.goldValue[i] = this.gold * BAL.boss.goldMult;
-    world.enemies.xpValue[i] = this.xp * BAL.boss.xpMult;
     this.bossHandle = world.enemies.handle(i);
     this.released++;
     bus.emit(EV.BossSpawned, this.bossIdx, x, y);

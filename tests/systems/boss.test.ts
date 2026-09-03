@@ -11,7 +11,6 @@ import { UPGRADE_COUNT } from '../../src/data/upgrades.ts';
 import { CARD_COUNT } from '../../src/data/cards.ts';
 import { BAL } from '../../src/data/balance.ts';
 import { FIXED_DT } from '../../src/core/constants.ts';
-import { xpToNext } from '../../src/systems/progression.ts';
 
 function setup(wave: number): {
   world: World;
@@ -22,7 +21,7 @@ function setup(wave: number): {
 } {
   const world = new World();
   const run = new RunState(UPGRADE_COUNT, CARD_COUNT);
-  run.reset(4242, xpToNext(1), 1);
+  run.reset(4242, BAL.progression.cardEveryWaves, 1);
   const spawner = new Spawner();
   const boss = new BossSystem();
   spawner.beginWave(world, run.seed, wave);
@@ -165,7 +164,6 @@ describe('boss actions', () => {
     world.enemies.flags[i] = EF.Boss;
     boss.register(world.enemies.handle(i), hiveIdx);
     world.splitTemplate.gold = 1;
-    world.splitTemplate.xp = 1;
 
     const before = world.enemies.liveCount;
     for (let t = 0; t < 60 * 20; t++) boss.update(world, new Rng(9), FIXED_DT);

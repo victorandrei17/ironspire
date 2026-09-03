@@ -128,8 +128,10 @@ export function goldDrop(wave: number): number {
   return BAL.wave.goldBase * Math.pow(BAL.wave.goldGrowth, wave - 1);
 }
 
-export function xpDrop(wave: number): number {
-  return BAL.wave.xpBase * Math.pow(BAL.wave.xpGrowth, wave - 1);
+/** HP multiplier for the boss of `wave`, compounding per boss (SPEC §6.3). */
+export function bossHpMult(wave: number): number {
+  const n = Math.max(1, Math.floor(wave / BAL.boss.every));
+  return BAL.boss.hpMult * Math.pow(BAL.boss.hpMultGrowth, n - 1);
 }
 
 export function isBossWave(wave: number): boolean {

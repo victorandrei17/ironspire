@@ -1,4 +1,6 @@
 import { CURRENT_VERSION, makeDefaultSave, type Save, type RunSnapshot } from './schema.ts';
+import { BAL } from '../data/balance.ts';
+import { TALENT_COST_GROWTH } from '../data/talents.ts';
 
 /**
  * Version migration chain (SPEC §15.3).
@@ -9,11 +11,60 @@ import { CURRENT_VERSION, makeDefaultSave, type Save, type RunSnapshot } from '.
  */
 export type MigrationStep = (save: Record<string, unknown>) => Record<string, unknown>;
 
-/** Index i migrates a save at version i+1 to version i+2. Empty at v1. */
-const STEPS: readonly MigrationStep[] = [
-  // Example of the shape a v1 -> v2 step will take:
-  // (s) => ({ ...s, v: 2, meta: { ...(s.meta as object), newField: 0 } }),
-];
+/**
+ * v1 -> v2: XP and pickups are gone.
+ *
+ * Two things in a v1 save no longer have a meaning: the run's XP progress
+ * (cards now arrive on a wave cadence) and the 'fortune_pickup' talent (there
+ * is no pickup radius to widen). The XP is translated into the equivalent
+ * cadence position so a resumed run keeps going, and every core spent on the
+ * dead talent is refunded — a player must never pay for a design change.
+ */
+function v1ToV2(save: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...save, v: 2 };
+
+  const meta = save.meta;
+  if (meta !== null && typeof meta === 'object') {
+    const m = { ...(meta as Record<string, unknown>) };
+    const talents = m.talents;
+    if (talents !== null && typeof talents === 'object') {
+      const t = { ...(talents as Record<string, unknown>) };
+      const rank = typeof t.fortune_pickup === 'number' ? t.fortune_pickup : 0;
+      if (rank > 0) {
+        delete t.fortune_pickup;
+        // The talent's own def is gone, so its cost lives here instead: it was
+        // costBase 6 on the shared growth curve. A migration is a historical
+        // record; reading the number from a table that no longer has the row
+        // is not an option.
+        let refund = 0;
+        for (let r = 0; r < rank; r++) refund += Math.floor(6 * Math.pow(TALENT_COST_GROWTH, r));
+        m.nucleos = (typeof m.nucleos === 'number' ? m.nucleos : 0) + refund;
+      }
+      m.talents = t;
+    }
+    out.meta = m;
+  }
+
+  const run = save.run;
+  if (run !== null && typeof run === 'object') {
+    const r = { ...(run as Record<string, unknown>) };
+    delete r.xp;
+    delete r.xpToNext;
+    const wave = typeof r.wave === 'number' ? r.wave : 0;
+    const cleared = Math.max(0, wave - 1);
+    const every = Math.max(1, BAL.progression.cardEveryWaves);
+    r.wavesCleared = cleared;
+    // Next offer lands at the next multiple STRICTLY ahead of what was cleared,
+    // so resuming never fires a card the moment the run comes back.
+    r.nextCardWave = (Math.floor(cleared / every) + 1) * every;
+    out.run = r;
+  }
+
+  return out;
+}
+
+/** Index i migrates a save at version i+1 to version i+2. */
+const STEPS: readonly MigrationStep[] = [v1ToV2];
 
 export type MigrateResult = {
   save: Save;
@@ -66,7 +117,7 @@ function fillDefaults(raw: Record<string, unknown>, now: number): Save {
   const idle = obj(raw.idle);
 
   return {
-    v: 1,
+    v: 2,
     meta: {
       nucleos: num(meta.nucleos, base.meta.nucleos),
       gemas: num(meta.gemas, base.meta.gemas),
@@ -114,6 +165,8 @@ function isRunSnapshot(v: unknown): v is RunSnapshot {
   return (
     typeof r.seed === 'number' &&
     typeof r.wave === 'number' &&
+    typeof r.wavesCleared === 'number' &&
+    typeof r.nextCardWave === 'number' &&
     typeof r.towerHp === 'number' &&
     Array.isArray(r.upgradeLevels) &&
     Array.isArray(r.cardLevels)

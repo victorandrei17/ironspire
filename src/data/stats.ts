@@ -18,11 +18,10 @@ export const ST = {
   Projectiles: 7,
   Pierce: 8,
   ProjSpeed: 9,
-  PickupRadius: 10,
-  GoldMult: 11,
+  GoldMult: 10,
 } as const;
 
-export const STAT_COUNT = 12;
+export const STAT_COUNT = 11;
 
 /** Behaviour flags set by cards; systems read them, data never runs logic. */
 export const TF = {

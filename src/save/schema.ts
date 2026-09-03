@@ -1,11 +1,11 @@
 /**
  * Save format (SPEC §15.2).
  *
- * The shape below is v1. ANY field change bumps `CURRENT_VERSION` and gains a
+ * The shape below is v2. ANY field change bumps `CURRENT_VERSION` and gains a
  * migration step — never a silent reinterpretation of old data. Discarding a
  * player's save is the single fastest route to a one-star review.
  */
-export const CURRENT_VERSION = 1;
+export const CURRENT_VERSION = 2;
 
 export type TalentLevels = Record<string, number>;
 
@@ -47,8 +47,8 @@ export type SaveIdle = {
   clockAnomalies: number;
 };
 
-/** A run frozen mid-flight, so closing the app does not throw it away. */
-export type RunSnapshot = {
+/** The v1 run snapshot, kept only so the v1 -> v2 migration can read one. */
+export type RunSnapshotV1 = {
   seed: number;
   wave: number;
   time: number;
@@ -67,25 +67,50 @@ export type RunSnapshot = {
   towerHp: number;
 };
 
-export type SaveV1 = {
-  v: 1;
+/** A run frozen mid-flight, so closing the app does not throw it away. */
+export type RunSnapshot = {
+  seed: number;
+  wave: number;
+  time: number;
+  gold: number;
+  goldEarned: number;
+  /** Waves fully cleared, and the count that owes the next card (v2). */
+  wavesCleared: number;
+  nextCardWave: number;
+  level: number;
+  kills: number;
+  policy: number;
+  pendingCards: number;
+  rerollsLeft: number;
+  waveMax: number;
+  upgradeLevels: number[];
+  cardLevels: number[];
+  towerHp: number;
+};
+
+type SaveBase = {
   meta: SaveMeta;
   stats: SaveStats;
   prefs: SavePrefs;
   idle: SaveIdle;
-  run?: RunSnapshot;
   /** Non-cryptographic hash of the payload. See save.ts for what it is for. */
   sig: string;
 };
 
+/** v1: XP-driven levels and a pickup-radius upgrade. Read-only, via migration. */
+export type SaveV1 = SaveBase & { v: 1; run?: RunSnapshotV1 };
+
+/** v2: gold is credited on death and cards come on a wave cadence. */
+export type SaveV2 = SaveBase & { v: 2; run?: RunSnapshot };
+
 /** The union of every version we can load. Grows with each migration. */
-export type AnySave = SaveV1;
-/** The current shape. Change this alias when a v2 lands. */
-export type Save = SaveV1;
+export type AnySave = SaveV1 | SaveV2;
+/** The current shape. Change this alias when a v3 lands. */
+export type Save = SaveV2;
 
 export function makeDefaultSave(now: number): Save {
   return {
-    v: 1,
+    v: 2,
     meta: { nucleos: 0, gemas: 0, ether: 0, talents: {}, unlocks: [] },
     stats: {
       totalRuns: 0,

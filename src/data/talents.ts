@@ -266,17 +266,6 @@ export const TALENTS: readonly TalentDef[] = [
     perRank: 25,
   },
   {
-    id: 'fortune_pickup',
-    branch: BRANCH.Fortune,
-    name: 'Mão Longa',
-    desc: (r) => `+${8 * r} de raio de coleta`,
-    maxRank: 8,
-    costBase: 6,
-    kind: 'statFlat',
-    stat: ST.PickupRadius,
-    perRank: 8,
-  },
-  {
     id: 'fortune_offline',
     branch: BRANCH.Fortune,
     name: 'Turno da Noite',

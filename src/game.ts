@@ -5,7 +5,6 @@ import { bus, EV } from './core/events.ts';
 import { AURA_HZ } from './core/constants.ts';
 
 import { World } from './entities/world.ts';
-import { ST } from './entities/tower.ts';
 
 import { UPGRADE_COUNT } from './data/upgrades.ts';
 import { CARD_COUNT } from './data/cards.ts';
@@ -30,7 +29,7 @@ import { CardOffer, pickCard, applyCards } from './systems/cards.ts';
 import { applyUpgrades } from './systems/upgrades.ts';
 import {
   updateProgression,
-  xpToNext,
+  wavesToNextCard,
   LevelUpEffect,
   healToMatchNewMax,
 } from './systems/progression.ts';
@@ -38,7 +37,6 @@ import {
   integrateEnemies,
   integrateProjectiles,
   integrateParticles,
-  integratePickups,
   integrateDamageNumbers,
   despawnStrays,
 } from './systems/movement.ts';
@@ -170,6 +168,7 @@ export class Game {
       this.world.tower.stats,
       () => this.world.tower.mods.upgradeCostMult,
       () => this.waves.callEarly(this.world, this.run, this.spawner),
+      (previousMaxHp) => healToMatchNewMax(this.world, previousMaxHp),
     );
     this.picker = new CardPicker(
       uiRoot,
@@ -412,8 +411,8 @@ export class Game {
     const mods = this.world.tower.mods;
     this.rng.state = seed;
     this.world.reset();
-    this.run.reset(seed, xpToNext(1), 1 + mods.rerolls);
-    this.run.gold = mods.startGold;
+    this.run.reset(seed, BAL.progression.cardEveryWaves, 1 + mods.rerolls);
+    this.run.gold = BAL.run.startGold + mods.startGold;
     applyUpgrades(this.run, this.world.tower.stats);
     applyCards(this.run, this.world.tower.stats);
     this.world.tower.hp = this.world.tower.hpMax;
@@ -543,8 +542,8 @@ export class Game {
       time: this.run.time,
       gold: this.run.gold,
       goldEarned: this.run.goldEarned,
-      xp: this.run.xp,
-      xpToNext: this.run.xpToNext,
+      wavesCleared: this.run.wavesCleared,
+      nextCardWave: this.run.nextCardWave,
       level: this.run.level,
       kills: this.run.kills,
       policy: this.run.policy,
@@ -569,12 +568,13 @@ export class Game {
     const snap = this.saves.save.run;
     if (snap === undefined) return false;
     this.world.reset();
-    this.run.reset(snap.seed, snap.xpToNext, snap.rerollsLeft);
+    this.run.reset(snap.seed, BAL.progression.cardEveryWaves, snap.rerollsLeft);
     this.run.wave = Math.max(0, snap.wave - 1);
     this.run.time = snap.time;
     this.run.gold = snap.gold;
     this.run.goldEarned = snap.goldEarned;
-    this.run.xp = snap.xp;
+    this.run.wavesCleared = snap.wavesCleared;
+    this.run.nextCardWave = snap.nextCardWave;
     this.run.level = snap.level;
     this.run.kills = snap.kills;
     this.run.waveMax = snap.waveMax;
@@ -668,14 +668,6 @@ export class Game {
 
     integrateEnemies(this.world.enemies, dt);
     integrateProjectiles(this.world.projectiles, dt);
-    integratePickups(
-      this.world.pickups,
-      dt,
-      this.world.tower.x,
-      this.world.tower.y,
-      this.world.tower.stats.get(ST.PickupRadius),
-    );
-
     this.world.rebuildHash();
 
     // Orbitals move before collision so their swept segment is this tick's.
@@ -689,10 +681,8 @@ export class Game {
     this.boss.update(this.world, this.rng, dt);
     this.status.update(this.world, dt, AURA_HZ);
 
-    const goldBefore = this.run.gold;
     resolveDamage(this.world, this.run, this.rng, dt);
-    updateRewards(this.world, this.run);
-    if (this.run.gold > goldBefore) this.run.goldEarned += this.run.gold - goldBefore;
+    updateRewards(this.run);
 
     updateProgression(this.run);
 
@@ -713,9 +703,7 @@ export class Game {
     this.panel.setNextWave(this.waves.canCallEarly, BAL.wave.earlyCallGoldBonus);
     if (this.waves.canCallEarly) this.tutorial.trigger(HINT_NEXT_WAVE);
     if (this.run.gold >= 20) this.tutorial.trigger(HINT_UPGRADES);
-    if (this.run.level >= 1 && this.run.xp > this.run.xpToNext * 0.5) {
-      this.tutorial.trigger(HINT_CARDS);
-    }
+    if (wavesToNextCard(this.run) <= 1) this.tutorial.trigger(HINT_CARDS);
     this.abilityBar.update(this.abilities);
     this.hud.update(this.run, this.world, dt);
 

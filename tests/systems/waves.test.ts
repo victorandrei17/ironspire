@@ -9,12 +9,16 @@ import { BAL } from '../../src/data/balance.ts';
 import { enemyCount, isBossWave } from '../../src/data/waves.ts';
 import { EF } from '../../src/data/enemyFlags.ts';
 import { FIXED_DT, R_SPAWN } from '../../src/core/constants.ts';
-import { xpToNext, coresForRun } from '../../src/systems/progression.ts';
+import {
+  updateProgression,
+  wavesToNextCard,
+  coresForRun,
+} from '../../src/systems/progression.ts';
 
 function setup(): { world: World; run: RunState; spawner: Spawner; waves: WaveSystem } {
   const world = new World();
   const run = new RunState(UPGRADE_COUNT, CARD_COUNT);
-  run.reset(12345, xpToNext(1), 1);
+  run.reset(12345, BAL.progression.cardEveryWaves, 1);
   const spawner = new Spawner();
   const waves = new WaveSystem();
   waves.reset();
@@ -191,13 +195,32 @@ describe('spawner (SPEC §6.3, §6.4)', () => {
 });
 
 describe('progression (SPEC §7.3, §2.3)', () => {
-  it('xpToNext grows and never goes non-finite', () => {
-    for (let l = 1; l <= 500; l++) {
-      const v = xpToNext(l);
-      expect(Number.isFinite(v)).toBe(true);
-      expect(v).toBeGreaterThan(0);
-      if (l > 1) expect(v).toBeGreaterThanOrEqual(xpToNext(l - 1));
+  it('offers one card every `cardEveryWaves` cleared waves, and no sooner', () => {
+    const s = setup();
+    const every = BAL.progression.cardEveryWaves;
+    for (let w = 1; w <= every * 4; w++) {
+      s.run.wavesCleared = w;
+      updateProgression(s.run);
+      expect(s.run.pendingCards).toBe(Math.floor(w / every));
+      expect(s.run.level).toBe(1 + Math.floor(w / every));
     }
+  });
+
+  it('banks an offer the player has not taken yet', () => {
+    const s = setup();
+    // Two thresholds cross before anyone opens the card screen.
+    s.run.wavesCleared = BAL.progression.cardEveryWaves * 2;
+    updateProgression(s.run);
+    expect(s.run.pendingCards).toBe(2);
+  });
+
+  it('counts down the waves left to the next card', () => {
+    const s = setup();
+    const every = BAL.progression.cardEveryWaves;
+    expect(wavesToNextCard(s.run)).toBe(every);
+    s.run.wavesCleared = 1;
+    updateProgression(s.run);
+    expect(wavesToNextCard(s.run)).toBe(every - 1);
   });
 
   it('core reward matches the spec examples', () => {

@@ -77,9 +77,9 @@ ABRIR APP
 Wave começa
   → inimigos spawnam no anel externo e convergem para o centro
   → torre auto-ataca o alvo escolhido pela política de mira
-  → inimigos morrem, dropam Ouro e XP (auto-coletados)
+  → inimigos morrem e o Ouro entra na conta na hora (número dourado flutuante)
   → jogador toca em upgrades no painel inferior (dano/cadência/…)
-  → XP enche → LEVEL UP → jogo entra em slow-motion e oferece 3 CARTAS
+  → a cada 5 waves limpas → jogo entra em slow-motion e oferece 3 CARTAS
   → jogador escolhe 1 → build da run muda
   → a cada 10 waves: BOSS (barra de vida no topo, padrão de ataque próprio)
 Wave termina → 2 s de respiro → próxima wave, mais forte
@@ -153,7 +153,6 @@ Direção de spawn: ângulo uniformemente aleatório em `[0, 2π)`, **exceto** e
 | Projéteis | `projectiles` | 1 | Tiros simultâneos por disparo (leque de 12° cada) |
 | Perfuração | `pierce` | 0 | Inimigos extras atravessados |
 | Velocidade proj. | `projSpeed` | 900 | Unidades/s |
-| Coleta | `pickupRadius` | 130 | Raio de auto-coleta de ouro/XP |
 | Bônus de ouro | `goldMult` | 1.00 | Multiplicador |
 
 **DPS efetivo** = `dmg * fireRate * projectiles * (1 + critChance * (critMult - 1)) * (1 + pierceAvgHit)`
@@ -246,11 +245,11 @@ export const BAL = {
     hpBase: 12,         hpGrowth: 1.145,
     hpSoftCapWave: 60,  hpGrowthLate: 1.105,   // curva quebra para não estourar float cedo demais
     speedBase: 1.0,     speedGrowth: 1.004,    speedCap: 1.6,
-    goldBase: 3,        goldGrowth: 1.09,
-    xpBase: 2,          xpGrowth: 1.075,
+    goldBase: 7,        goldGrowth: 1.09,
     gap: 2.0,
   },
-  boss: { every: 10, hpMult: 14, goldMult: 25, xpMult: 20 },
+  run:  { startGold: 160 },
+  boss: { every: 10, hpMult: 14, hpMultGrowth: 1.22, goldMult: 25 },
   elite:{ startWave: 8, chancePerWave: 0.02, chanceCap: 0.25, hpMult: 6, goldMult: 8 },
 } as const;
 ```
@@ -261,10 +260,13 @@ enemyHp(n)     = hpBase * (n <= 60 ? hpGrowth^(n-1)
                                    : hpGrowth^59 * hpGrowthLate^(n-60))
 enemySpeed(n)  = min(speedCap, speedBase * speedGrowth^(n-1))   // multiplicador da vel. base do arquétipo
 goldDrop(n)    = goldBase * goldGrowth^(n-1)
-xpDrop(n)      = xpBase   * xpGrowth^(n-1)
+bossHpMult(n)  = hpMult * hpMultGrowth^(floor(n/10) - 1)
 ```
 
-> **Por que 1.145?** Combinado com o crescimento de poder do jogador (upgrades + cartas + meta), produz uma parede natural entre as waves 25–35 na primeira run e empurra o jogador para o meta-loop. Este número **deve ser re-tunado** com telemetria depois do M6. Trate-o como uma hipótese, não como verdade.
+> **Sobre estes números.** Todos foram re-tunados contra `npm run balance` e contra o build real; os valores originais do spec estão registrados no PROGRESS.md com o antes/depois. Duas inversões merecem destaque, porque contrariam o texto original:
+>
+> - **`hpGrowthLate` agora é MAIOR que `hpGrowth`.** Renda e custo são geométricos, então o número de níveis comprados cresce linearmente e o upgrade de dano (multiplicativo) vira uma exponencial em waves. Uma curva tardia mais suave significava *nenhuma* parede depois da wave 60 — o simulador levava o jogador otimizador até o horizonte sem morrer.
+> - **Só o dano é multiplicativo.** Cada upgrade `mult` soma um expoente à curva de poder; com dano, cadência e dano crítico compondo juntos, o DPS crescia ~18%/wave contra HP a 9,5%/wave. Cadência e dano crítico voltaram a ser aditivos.
 
 ### 6.3 Tabela de pesos de composição
 
@@ -306,7 +308,6 @@ O padrão é anunciado por um ícone + texto de 1 s antes da wave ("⟡ INVESTID
 | Moeda | Escopo | Fonte | Gasta em |
 |-------|--------|-------|----------|
 | **Ouro** 🪙 | Run (zera ao fim) | Inimigos mortos | Upgrades in-run |
-| **XP** ✦ | Run | Inimigos mortos | Automático → níveis → cartas |
 | **Núcleo** ◈ | Permanente | Fim de run | Árvore de talentos |
 | **Gema** ♦ | Permanente | Bosses, missões, IAP | Continues, slots, cosméticos |
 | **Éter** ✵ | Permanente (pós-rebirth) | Rebirth | Multiplicadores globais |
@@ -323,8 +324,8 @@ O padrão é anunciado por um ícone + texto de 1 s antes da wave ("⟡ INVESTID
 | Vida Máx. | +18 HP | 35 | 1.12 |
 | Regeneração | +0.25 HP/s | 60 | 1.16 |
 | Chance Crít. | +1.2% (cap 60%) | 55 | 1.14 |
-| Dano Crít. | +12% | 70 | 1.15 |
-| Coleta | +14 raio | 40 | 1.11 |
+| Dano Crít. | +0.07x | 70 | 1.15 |
+| Ouro | +5% por morte | 60 | 1.16 |
 
 ```
 cost(level) = floor(base * growth^level * metaCostMult)
@@ -336,12 +337,17 @@ cost(level) = floor(base * growth^level * metaCostMult)
 - Botão "MAX" compra o máximo possível numa transação (fórmula de soma de PG fechada, não loop).
 - Feedback: número flutuante `+12% DANO`, tick de áudio com pitch subindo por compra em sequência.
 
-### 7.3 Níveis da torre e XP
+### 7.3 Cartas: cadência por wave
 
 ```
-xpToNext(level) = floor(12 * 1.18^(level-1))
+uma carta a cada BAL.progression.cardEveryWaves waves LIMPAS (5)
 ```
-Ao subir de nível: `timeScale` cai para 0.15 durante 0,35 s (efeito "impacto"), a wave **pausa** e aparece a tela de 3 cartas. Não há timer — o jogador escolhe no seu tempo. (Timer em tela de escolha é hostil no mobile: o jogador pode estar atravessando a rua.)
+
+**Não há XP.** Com todos os inimigos de uma wave morrendo de qualquer forma, o XP só media waves decorridas com um passo a mais no meio — duas moedas para a mesma coisa. As cartas são um bônus leve sobre os upgrades de ouro, não o motor da run, e é por isso que a cadência é esparsa: uma run até a wave 20 oferece quatro.
+
+Ofertas são **acumuladas**, não perdidas: se duas waves fecharem enquanto a tela está aberta, o jogador recebe as duas escolhas.
+
+Ao ganhar uma carta: `timeScale` cai para 0.15 durante 0,35 s (efeito "impacto"), a wave **pausa** e aparece a tela de 3 cartas. Não há timer — o jogador escolhe no seu tempo. (Timer em tela de escolha é hostil no mobile: o jogador pode estar atravessando a rua.)
 
 ---
 
@@ -441,7 +447,7 @@ Exemplos (sem bônus meta): wave 12 → 5 ◈ | wave 25 → 18 ◈ | wave 50 →
 |------|----------------|
 | ⚔️ **Guerra** | Dano base, cadência base, crít, projétil inicial, dano vs boss |
 | 🛡️ **Fortaleza** | Vida base, regen, redução de dano, i-frames, revive 1×/run |
-| 💰 **Fortuna** | Ouro+, XP+, custo de upgrade−, ouro inicial, taxa offline |
+| 💰 **Fortuna** | Ouro+, custo de upgrade−, ouro inicial, taxa offline |
 | ✦ **Arcano** | Slot de habilidade, rerolls, chance de rara/épica, sorte de carta |
 
 Cada nó tem 5–10 ranks. Respec grátis e ilimitado (nada de punir experimentação).
@@ -481,7 +487,7 @@ ether = floor((waveMax - 60) ^ 0.9 / 3)
 │                             │
 │                             │
 │   ▓▓▓▓▓▓░░ HP    Wave 23    │
-│   ▓▓▓▓░░░░ XP  Lv.14        │
+│   ▓▓▓░░░░░ CARTA EM 3       │
 │                             │
 │  🪙 4.7K            [🎯]    │  ← ouro + política de mira
 │ ┌────┬────┬────┬────┐ ┌──┐  │
@@ -569,10 +575,10 @@ function frame(now: number) {
 9.  abilities.update()       → cooldowns, efeitos ativos
 10. auras.update()           → 10 Hz: slow, cura de mender, orbitais
 11. damage.resolve()         → fila de dano → HP, crit, morte
-12. rewards.update()         → drops de ouro/XP, ímã de coleta
+12. rewards.update()         → publica o ouro creditado no tick (um evento)
 13. status.update()          → burn/slow/freeze, ticks
 14. waves.update()           → checa fim de wave, avança
-15. progression.update()     → level-up, dispara tela de cartas
+15. progression.update()     → conta waves limpas, dispara tela de cartas
 16. particles.update()       → VFX, números de dano
 17. camera.update()          → trauma/shake
 18. audio.flush()            → toca a fila de sons deduplicada
@@ -584,7 +590,7 @@ function frame(now: number) {
 ### 12.4 Pools de entidades (SoA)
 
 ```ts
-// Exemplo: EnemyPool. O mesmo padrão para Projectile, Particle, Pickup, DamageNumber.
+// Exemplo: EnemyPool. O mesmo padrão para Projectile, Particle, DamageNumber.
 class EnemyPool {
   cap: number;
   // hot data (tocado todo tick) — Float32Array
@@ -602,7 +608,7 @@ class EnemyPool {
 }
 ```
 
-- Capacidades: `ENEMY_CAP = 400`, `PROJ_CAP = 800`, `PARTICLE_CAP = 1200`, `PICKUP_CAP = 300`, `DMGNUM_CAP = 120`.
+- Capacidades: `ENEMY_CAP = 400`, `PROJ_CAP = 800`, `PARTICLE_CAP = 1200`, `DMGNUM_CAP = 120`.
 - **Pool cheio nunca cresce** — descarta o mais antigo/menos importante (partículas) ou pula o spawn (inimigos). Crescer no meio da run causa stall.
 - Iteração: `for (let i = 0; i < pool.count; i++) if (pool.alive[i]) {...}` — sem iteradores, sem callbacks.
 
@@ -967,7 +973,7 @@ iron-spire/
     │   ├── talents.ts  abilities.ts  anims.ts  audio.ts  strings.pt.ts
     ├── entities/
     │   ├── enemyPool.ts  projectilePool.ts  particlePool.ts
-    │   ├── pickupPool.ts  damageNumberPool.ts  tower.ts
+    │   ├── damageNumberPool.ts  tower.ts
     ├── systems/
     │   ├── spawner.ts  ai.ts  movement.ts  targeting.ts  weapons.ts
     │   ├── projectiles.ts  damage.ts  auras.ts  abilities.ts  status.ts
@@ -1022,7 +1028,7 @@ export const R_SPAWN = 560, R_DESPAWN = 700, R_TOWER_BODY = 34;
 export const FIXED_DT = 1 / 60, MAX_FRAME = 0.25, MAX_CATCHUP = 5;
 export const CELL_SIZE = 64;
 export const ENEMY_CAP = 400, PROJ_CAP = 800, PARTICLE_CAP = 1200,
-             PICKUP_CAP = 300, DMGNUM_CAP = 120;
+             DMGNUM_CAP = 120;
 export const TARGETING_HZ = 10, AURA_HZ = 10;
 export const AUTOSAVE_SEC = 10, WAVE_GAP = 2.0;
 export const IFRAME_SEC = 0.25;

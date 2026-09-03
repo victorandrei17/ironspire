@@ -463,6 +463,68 @@ representativa dentro da faixa, (2) nenhuma política rodando para sempre — um
 curva sem parede é uma curva quebrada, (3) mesmo jogo desleixado passa da onda 5.
 ```
 
+**Segunda passada — quando o XP e os pickups saíram (sessão 2):**
+```
+MOTIVO (pedido do dono do projeto)
+  Ouro cai direto na conta ao matar; sem orbe no chão. Sem XP. Uma carta a
+  cada 5 waves limpas. Cartas são bônus leve, não o motor da run.
+
+O QUE ISSO QUEBROU
+  As cartas chegavam ~1 por wave e davam ~15% de poder cada. Ou seja: metade
+  da curva de poder do jogador era carta. Sem elas, a run 1 caiu de 14 para 6
+  e a curva perdeu a CURVATURA (mid e late acompanhavam a run 1 linearmente).
+
+DUAS DESCOBERTAS ESTRUTURAIS (as duas viraram teste/portão)
+  1. Só o dano pode ser multiplicativo. Renda e custo são geométricos, então
+     níveis crescem linearmente e cada upgrade `mult` soma um EXPOENTE à curva
+     de poder. Com dano + cadência + dano crít compondo, o otimizador crescia
+     ~18%/wave contra HP a 9,5%: não existia parede alguma, em nenhuma faixa.
+     Cadência e dano crít voltaram a ser aditivos.
+  2. `hpGrowthLate` tinha de ficar ACIMA de `hpGrowth`, não abaixo. Uma curva
+     tardia mais suave que a inicial é, por construção, uma promessa de que o
+     jogador ganha no infinito. O teste que exigia o contrário foi trocado por
+     um que compara a curva tardia com o expoente do upgrade composto.
+
+O SIMULADOR TAMBÉM ESTAVA ERRADO (de novo)
+  Ele confundia "entrou no alcance" com "encostou na torre": a torre atirava
+  cedo demais E apanhava cedo demais ao mesmo tempo, e lia ~50% mais ondas do
+  que o build real entregava. Agora há três faixas (andando / no alcance / em
+  contato) e o boss é um corpo próprio — sem isso, matar a escolta "terminava"
+  a wave do boss e toda run travava na onda 10.
+
+MUDANÇAS
+  wave.hpGrowth       1.11  → 1.095
+  wave.hpGrowthLate   1.085 → 1.105   (inversão deliberada, ver acima)
+  wave.goldBase       3     → 7       (a abertura era carregada pelas cartas)
+  run.startGold       —     → 160     (novo: a primeira compra cai na wave 1)
+  boss.hpMultGrowth   —     → 1.22    (novo: cada boss maior que o anterior;
+                                       o boss É a parede, e uma parede fixa
+                                       deixava o mid game sem forma)
+  upgrade dano        ×1.075 → ×1.085
+  upgrade cadência    ×1.035 → +6% do base (aditivo)
+  upgrade dano crít   ×1.05  → +0.07x (aditivo)
+  upgrade coleta      removido → OURO (+5% de ouro por morte)
+  talento Mão Longa   removido (Núcleos gastos são devolvidos na migração)
+  política represen-  'tudo em dano' → 'iniciante' (compra dano; compra VIDA
+  tativa do simulador  quando está ferido). A antiga só sobrevivia porque uma
+                       carta por nível lhe dava vida de graça — sem isso ela
+                       modela um glass cannon puro, que não é o jogador médio.
+                       Ela continua no relatório como piso.
+  VIDA ao ser comprada agora CURA o que adiciona (a carta hp_up já fazia isso)
+
+DEPOIS (npm run balance --runs=80 --check → passa)
+  run 1 (sem meta)     · iniciante mediana 14 ✅ · espalhado  5 · guloso  14
+  após ~1h de meta     · iniciante mediana 50 ✅ · espalhado  8 · guloso 100
+  pós-prestígio        · iniciante mediana 80 ✅ · espalhado 19 · guloso 120
+
+MEDIDO NO BUILD REAL (bot que joga como 'iniciante', tools/play-real.mjs)
+  run 1 · mediana 12 (10, 10, 12, 12) — dentro de 12–20, no limite inferior
+  O simulador ainda lê ~15% otimista. Onde os dois discordam, vale o real: foi
+  jogando o build que apareceu o bug do seletor de carta que fazia o bot do
+  smoke test nunca comprar nada (`.card:not([hidden])` casava com as cartas
+  dentro da modal fechada, porque quem tem [hidden] é a modal).
+```
+
 ---
 
 
@@ -701,3 +763,37 @@ chaves de assinatura, contas e um telefone. Nada disso existe neste ambiente.
 
 **Próximo passo:** rodar em celular real (`npm run dev -- --host`) e medir FPS
 com a arte ainda ausente; depois `npx cap add android` numa máquina com SDK.
+
+### 2026-09-03 — sessão 2
+**Feito:** primeira mudança de mecânica pedida pelo dono do projeto — ouro
+creditado na morte (sem orbe no chão), XP removido por completo, e uma carta a
+cada 5 waves limpas. O upgrade COLETA virou OURO (+5% por morte), o talento
+Mão Longa saiu com devolução de Núcleos na migração, e o save foi para a v2.
+SPEC §6.2, §7.1, §7.2, §7.3, §11 e §12.3 atualizados.
+
+**Descoberto:**
+- As cartas eram metade da curva de poder. Chegavam ~1 por wave e davam ~15%
+  cada; tirando isso, a run 1 caiu de 14 para 6. O rebalanceamento não foi
+  "ajustar um número", foi devolver ao ouro a inclinação que as cartas davam.
+- **Cada upgrade multiplicativo soma um expoente à curva do jogador.** Com
+  dano, cadência e dano crítico compondo juntos, o DPS crescia ~18%/wave contra
+  HP a 9,5%: não existia parede nenhuma, em faixa nenhuma. Só o dano compõe
+  agora. Isso estava errado desde o M6 e o portão não pegou porque o horizonte
+  da simulação (200 waves) escondia.
+- **`hpGrowthLate` precisava ficar ACIMA de `hpGrowth`**, o oposto do que o
+  código dizia. Uma curva tardia mais suave é uma promessa de que o jogador
+  ganha no infinito.
+- O simulador confundia "entrou no alcance" com "encostou na torre" — atirava
+  cedo demais e apanhava cedo demais ao mesmo tempo, e lia ~50% mais waves que
+  o build real. Reescrito com três faixas e o boss como corpo próprio.
+- O bot do smoke test nunca comprava nada: `.card:not([hidden])` casava com as
+  cartas dentro da modal FECHADA (quem tem `[hidden]` é a modal), então ele
+  gastava todo tick clicando numa carta invisível. Meses de "auto play" que só
+  andava. Corrigido, e virou `tools/play-real.mjs` — jogar o build de verdade é
+  a única forma de saber se o simulador está mentindo.
+
+**Bloqueado em:** nada novo. Continua valendo o da sessão 1 (aparelho real,
+build nativo, contas de loja).
+
+**Próximo passo:** jogar algumas runs à mão e sentir se 5 waves por carta é
+espaçado demais na prática — o número está em `BAL.progression.cardEveryWaves`.

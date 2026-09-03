@@ -83,7 +83,7 @@ if (process.argv.includes('--auto')) {
   await page.evaluate(() => {
     // Spend whatever is affordable and clear any card screen, twice a second.
     setInterval(() => {
-      for (const b of document.querySelectorAll('.card:not([hidden])')) {
+      for (const b of document.querySelectorAll('.modal:not([hidden]) .card')) {
         b.click();
         return;
       }

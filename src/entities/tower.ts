@@ -20,7 +20,6 @@ BASE[ST.CritMult] = BAL.tower.critMult;
 BASE[ST.Projectiles] = BAL.tower.projectiles;
 BASE[ST.Pierce] = BAL.tower.pierce;
 BASE[ST.ProjSpeed] = BAL.tower.projSpeed;
-BASE[ST.PickupRadius] = BAL.tower.pickupRadius;
 BASE[ST.GoldMult] = BAL.tower.goldMult;
 
 /**

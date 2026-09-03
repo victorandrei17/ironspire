@@ -2,7 +2,7 @@ import { VH } from '../core/constants.ts';
 
 /**
  * Draw order (SPEC §13 / PROGRESS M1):
- * ground → shadows → pickups → enemies (Y-sorted) → tower → projectiles → VFX → numbers.
+ * ground → shadows → enemies (Y-sorted) → tower → projectiles → VFX → numbers.
  *
  * The order is a constant, not a data structure: there is no dynamic layer
  * system to walk, the renderer just runs its passes in this sequence.

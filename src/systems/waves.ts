@@ -48,6 +48,9 @@ export class WaveSystem {
     spawner.update(world, dt);
     // The wave is over once everything is released AND the arena is clear.
     if (spawner.allReleased && world.enemies.liveCount === 0) {
+      // Counted here and nowhere else: `progression.ts` pays out card offers on
+      // this number, so a wave abandoned by a retreat must not count.
+      run.wavesCleared++;
       bus.emit(EV.WaveEnd, run.wave);
       this.phase = WAVE_PHASE.Gap;
       this.gapLeft = BAL.wave.gap;

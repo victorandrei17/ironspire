@@ -30,7 +30,5 @@ export function stressFill(world: World, target: number, rng: Rng, wave = 10): v
     world.enemies.applyArchetype(i, def, speedMul);
     world.enemies.goldValue[i] =
       BAL.wave.goldBase * Math.pow(BAL.wave.goldGrowth, wave - 1) * def.goldMul;
-    world.enemies.xpValue[i] =
-      BAL.wave.xpBase * Math.pow(BAL.wave.xpGrowth, wave - 1) * def.xpMul;
   }
 }

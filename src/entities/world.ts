@@ -3,7 +3,6 @@ import { EnemyPool } from './enemyPool.ts';
 import { HazardPool } from './hazardPool.ts';
 import { ProjectilePool } from './projectilePool.ts';
 import { ParticlePool } from './particlePool.ts';
-import { PickupPool } from './pickupPool.ts';
 import { DamageNumberPool } from './damageNumberPool.ts';
 import { Tower } from './tower.ts';
 import { SpatialHash } from '../core/spatialHash.ts';
@@ -17,7 +16,6 @@ export const PROJ_SPRITE_BOLT = 0;
 export const PROJ_SPRITE_ENEMY = 1;
 export const PROJ_SPRITE_ORB = 2;
 
-const PICKUP_KEYS: readonly SpriteKey[] = ['pickup/gold', 'pickup/xp'];
 
 const PARTICLE_KEYS: readonly SpriteKey[] = ['fx/spark', 'fx/ring', 'fx/burst', 'fx/smoke'];
 export const FX_SPARK = 0;
@@ -34,7 +32,6 @@ export class World {
   readonly enemies = new EnemyPool();
   readonly projectiles = new ProjectilePool();
   readonly particles = new ParticlePool();
-  readonly pickups = new PickupPool();
   readonly damageNumbers = new DamageNumberPool();
   /** Boss telegraphs and ground hazards (SPEC §5.2). */
   readonly hazards = new HazardPool();
@@ -58,7 +55,6 @@ export class World {
     attackInterval: 0.7,
     flags: 0,
     gold: 0,
-    xp: 0,
   };
 
   /**
@@ -80,7 +76,6 @@ export class World {
     // ENEMY_LIST.length + bossIdx, which is what the spawner writes.
     this.enemies.keys = [...ENEMY_SPRITE_KEYS, ...BOSSES.map((b) => b.sprite)];
     this.projectiles.keys = PROJ_KEYS;
-    this.pickups.keys = PICKUP_KEYS;
     this.particles.keys = PARTICLE_KEYS;
     this.tower.reset(TOWER_X, TOWER_Y);
   }
@@ -90,7 +85,6 @@ export class World {
     this.enemies.reset();
     this.projectiles.reset();
     this.particles.reset();
-    this.pickups.reset();
     this.damageNumbers.reset();
     this.hazards.reset();
     this.tower.reset(TOWER_X, TOWER_Y);

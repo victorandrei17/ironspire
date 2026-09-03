@@ -11,11 +11,12 @@ import { EF } from '../../src/data/enemyFlags.ts';
 import { ENEMY_TUNING, enemyIndex, ENEMY_LIST } from '../../src/data/enemies.ts';
 import { BAL } from '../../src/data/balance.ts';
 import { FIXED_DT } from '../../src/core/constants.ts';
+import { DIGIT_GOLD } from '../../src/entities/damageNumberPool.ts';
 
 function makeWorld(): { world: World; run: RunState; rng: Rng } {
   const world = new World();
   const run = new RunState(UPGRADE_COUNT, CARD_COUNT);
-  run.reset(1, BAL.progression.xpBase, 1);
+  run.reset(1, BAL.progression.cardEveryWaves, 1);
   return { world, run, rng: new Rng(1234) };
 }
 
@@ -205,17 +206,30 @@ describe('tower damage', () => {
 });
 
 describe('death path', () => {
-  it('drops gold and XP, counts the kill and frees the slot', () => {
+  it('credits gold on death, counts the kill and frees the slot', () => {
     const { world, run, rng } = makeWorld();
     const i = spawnEnemy(world, 'grunt', 10);
     world.enemies.goldValue[i] = 7;
-    world.enemies.xpValue[i] = 3;
     world.queue.push(DMG_TARGET_ENEMY, world.enemies.handle(i), 10, 0, 0, 0);
     resolveDamage(world, run, rng, FIXED_DT);
     expect(world.enemies.alive[i]).toBe(0);
     expect(run.kills).toBe(1);
-    expect(world.pickups.liveCount).toBe(2);
+    // Instant, with nothing left on the floor to walk over (SPEC §7.1).
+    expect(run.gold).toBeCloseTo(7, 4);
+    expect(run.goldTick).toBeCloseTo(7, 4);
     expect(world.particles.liveCount).toBeGreaterThan(0);
+  });
+
+  it('shows the gold it credits as a floating number', () => {
+    const { world, run, rng } = makeWorld();
+    const i = spawnEnemy(world, 'grunt', 10);
+    world.enemies.goldValue[i] = 12;
+    killEnemy(world, run, i, rng);
+    const d = world.damageNumbers;
+    let found = -1;
+    for (let k = 0; k < d.count; k++) if (d.alive[k] === 1 && d.row[k] === DIGIT_GOLD) found = k;
+    expect(found).toBeGreaterThanOrEqual(0);
+    expect(d.value[found]).toBe(12);
   });
 
   it('scales gold by the wave bonus and the gold multiplier', () => {
@@ -225,9 +239,8 @@ describe('death path', () => {
     world.tower.stats.markDirty();
     const i = spawnEnemy(world, 'grunt', 10);
     world.enemies.goldValue[i] = 10;
-    world.enemies.xpValue[i] = 0;
     killEnemy(world, run, i, rng);
-    expect(world.pickups.value[0]).toBeCloseTo(10 * 1.15 * 2, 4);
+    expect(run.gold).toBeCloseTo(10 * 1.15 * 2, 4);
   });
 
   it('a splitter leaves children behind', () => {
