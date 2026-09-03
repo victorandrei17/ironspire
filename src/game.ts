@@ -1,0 +1,369 @@
+import { GameLoop } from './core/loop.ts';
+import { Rng } from './core/rng.ts';
+import { RunState, SCENE, POLICY_COUNT, type Scene, type TargetPolicy } from './core/state.ts';
+import { bus, EV } from './core/events.ts';
+import { AURA_HZ } from './core/constants.ts';
+
+import { World } from './entities/world.ts';
+import { ST } from './entities/tower.ts';
+
+import { UPGRADE_COUNT } from './data/upgrades.ts';
+import { CARD_COUNT } from './data/cards.ts';
+import { BAL } from './data/balance.ts';
+
+import { AiSystem } from './systems/ai.ts';
+import { TargetingSystem } from './systems/targeting.ts';
+import { updateWeapons } from './systems/weapons.ts';
+import { ProjectileSystem } from './systems/projectiles.ts';
+import { EnemyCombatSystem } from './systems/enemyCombat.ts';
+import { StatusSystem } from './systems/status.ts';
+import { resolveDamage } from './systems/damage.ts';
+import { updateRewards } from './systems/rewards.ts';
+import { CameraSystem } from './systems/camera.ts';
+import { Spawner } from './systems/spawner.ts';
+import { WaveSystem } from './systems/waves.ts';
+import { CardOffer, pickCard, applyCards } from './systems/cards.ts';
+import { applyUpgrades } from './systems/upgrades.ts';
+import {
+  updateProgression,
+  xpToNext,
+  coresForRun,
+  LevelUpEffect,
+  healToMatchNewMax,
+} from './systems/progression.ts';
+import {
+  integrateEnemies,
+  integrateProjectiles,
+  integrateParticles,
+  integratePickups,
+  integrateDamageNumbers,
+  despawnStrays,
+} from './systems/movement.ts';
+
+import { Viewport } from './render/viewport.ts';
+import { Renderer } from './render/renderer.ts';
+import { AssetRegistry } from './render/assetRegistry.ts';
+import { createWorldView, syncWorldView } from './render/worldView.ts';
+import { missingSpriteKeys } from './render/drawSprite.ts';
+
+import { Input } from './platform/input.ts';
+import { Lifecycle } from './platform/lifecycle.ts';
+import { DebugOverlay } from './debug/overlay.ts';
+
+import { Hud } from './ui/hud.ts';
+import { UpgradePanel } from './ui/upgradePanel.ts';
+import { CardPicker } from './ui/cardPicker.ts';
+import { MainMenu, PauseScreen, ResultScreen, TopBar, type RunResult } from './ui/menus.ts';
+
+/**
+ * The app root: owns the scene machine, the systems, and the UI (SPEC §12.6).
+ *
+ * One place decides what runs in which scene. Systems stay ignorant of scenes,
+ * and the UI never reaches into a system — it calls a method here.
+ */
+export class Game {
+  readonly world = new World();
+  readonly run = new RunState(UPGRADE_COUNT, CARD_COUNT);
+
+  private scene: Scene = SCENE.Menu;
+  private readonly rng = new Rng(1);
+
+  private readonly ai = new AiSystem();
+  private readonly targeting = new TargetingSystem();
+  private readonly projectiles = new ProjectileSystem();
+  private readonly enemyCombat = new EnemyCombatSystem();
+  private readonly status = new StatusSystem();
+  private readonly camera: CameraSystem;
+  private readonly spawner = new Spawner();
+  private readonly waves = new WaveSystem();
+  private readonly offer = new CardOffer();
+  private readonly levelUpFx = new LevelUpEffect();
+
+  private readonly viewport: Viewport;
+  private readonly renderer: Renderer;
+  private readonly assets = new AssetRegistry();
+  private readonly view;
+  private readonly input: Input;
+  private readonly overlay: DebugOverlay;
+  private readonly loop: GameLoop;
+
+  private readonly hud: Hud;
+  private readonly panel: UpgradePanel;
+  private readonly picker: CardPicker;
+  private readonly menu: MainMenu;
+  private readonly pause: PauseScreen;
+  private readonly result: ResultScreen;
+  private readonly topBar: TopBar;
+
+  private readonly debugLines: string[] = ['', '', '', ''];
+
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    uiRoot: HTMLElement,
+    ctx: CanvasRenderingContext2D,
+  ) {
+    this.viewport = new Viewport(canvas);
+    this.renderer = new Renderer(ctx, this.viewport);
+    this.input = new Input(this.viewport);
+    this.overlay = new DebugOverlay(uiRoot);
+    this.view = createWorldView(this.world);
+    this.camera = new CameraSystem(this.rng);
+
+    this.hud = new Hud(uiRoot, () => this.cyclePolicy());
+    this.panel = new UpgradePanel(uiRoot, this.run, this.world.tower.stats, () =>
+      this.waves.callEarly(this.world, this.run, this.spawner),
+    );
+    this.picker = new CardPicker(
+      uiRoot,
+      (slot) => this.takeCard(slot),
+      () => this.rerollOffer(),
+    );
+    this.menu = new MainMenu(
+      uiRoot,
+      () => this.startRun(),
+      () => undefined,
+    );
+    this.pause = new PauseScreen(
+      uiRoot,
+      () => this.setScene(SCENE.Run),
+      () => this.endRun(false),
+    );
+    this.result = new ResultScreen(
+      uiRoot,
+      () => this.startRun(),
+      () => this.setScene(SCENE.Menu),
+    );
+    this.topBar = new TopBar(uiRoot, () => this.setScene(SCENE.Pause));
+
+    this.loop = new GameLoop(
+      (dt) => this.simulate(dt),
+      (alpha) => this.render(alpha),
+    );
+
+    bus.on(EV.WaveStart, (wave, pattern) => this.hud.banner(pattern, wave));
+    bus.on(EV.TowerDied, () => this.endRun(true));
+
+    this.setScene(SCENE.Menu);
+  }
+
+  // --- lifecycle -------------------------------------------------------------
+
+  start(): void {
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+    window.addEventListener('orientationchange', () => this.resize());
+    this.input.attach(this.canvas);
+    this.overlay.attachKeyboard();
+
+    new Lifecycle({
+      onPause: () => {
+        this.input.clearActive();
+        if (this.scene === SCENE.Run) this.setScene(SCENE.Pause);
+      },
+      onResume: () => this.loop.reset(),
+    }).attach();
+
+    // The atlas is optional by contract: absent means placeholders (SPEC §13.6).
+    void this.assets.load('game', this.viewport.dpr);
+
+    const frame = (now: number): void => {
+      requestAnimationFrame(frame);
+      this.loop.frame(now);
+    };
+    requestAnimationFrame(frame);
+  }
+
+  private resize(): void {
+    this.viewport.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
+  }
+
+  // --- scenes ----------------------------------------------------------------
+
+  private setScene(next: Scene): void {
+    this.scene = next;
+    const inRun = next === SCENE.Run;
+    this.hud.setVisible(inRun || next === SCENE.CardPick);
+    this.panel.setVisible(inRun);
+    this.topBar.setVisible(inRun);
+    this.picker.setVisible(next === SCENE.CardPick);
+    this.menu.setVisible(next === SCENE.Menu);
+    this.pause.setVisible(next === SCENE.Pause);
+    this.result.setVisible(next === SCENE.Result);
+    // Pause and the card screen freeze the simulation entirely; the level-up
+    // slow-mo is the only partial time scale (SPEC §7.3).
+    this.loop.timeScale = inRun ? 1 : 0;
+    bus.emit(EV.SceneChanged, next);
+  }
+
+  private startRun(): void {
+    const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
+    this.rng.state = seed;
+    this.world.reset();
+    this.run.reset(seed, xpToNext(1), 1);
+    applyUpgrades(this.run, this.world.tower.stats);
+    applyCards(this.run, this.world.tower.stats);
+    this.world.tower.hp = this.world.tower.hpMax;
+    this.spawner.reset();
+    this.waves.reset();
+    this.status.reset();
+    this.camera.reset();
+    this.levelUpFx.reset();
+    this.offer.close();
+    this.setScene(SCENE.Run);
+    bus.emit(EV.RunStarted, seed);
+  }
+
+  private endRun(died: boolean): void {
+    if (this.scene === SCENE.Result) return;
+    this.run.over = true;
+    this.run.waveMax = Math.max(this.run.waveMax, this.run.wave);
+    const res: RunResult = {
+      wave: this.run.waveMax,
+      kills: this.run.kills,
+      timeSec: this.run.time,
+      gold: this.run.goldEarned,
+      cores: coresForRun(this.run.waveMax),
+      died,
+    };
+    this.result.render(res);
+    this.setScene(SCENE.Result);
+    bus.emit(EV.RunEnded, res.wave, res.cores, died ? 1 : 0);
+  }
+
+  private cyclePolicy(): void {
+    this.run.policy = ((this.run.policy + 1) % POLICY_COUNT) as TargetPolicy;
+    // Force a fresh acquisition so the change is felt immediately.
+    this.world.tower.targetHandle = -1;
+  }
+
+  private takeCard(slot: number): void {
+    const beforeMax = this.world.tower.hpMax;
+    const idx = pickCard(this.offer, this.run, this.world.tower.stats, slot);
+    if (idx < 0) return;
+    // hp_up heals by what it added; the card's apply stays pure (SPEC §8.3).
+    healToMatchNewMax(this.world, beforeMax);
+    this.run.pendingCards = Math.max(0, this.run.pendingCards - 1);
+    if (this.run.pendingCards > 0) this.openCardPick();
+    else this.setScene(SCENE.Run);
+  }
+
+  private rerollOffer(): void {
+    if (this.run.rerollsLeft <= 0) return;
+    this.run.rerollsLeft--;
+    this.offer.roll(this.run, this.rng);
+    this.picker.render(this.offer, this.run);
+  }
+
+  private openCardPick(): void {
+    this.offer.roll(this.run, this.rng);
+    this.picker.render(this.offer, this.run);
+    this.setScene(SCENE.CardPick);
+  }
+
+  // --- tick ------------------------------------------------------------------
+
+  /** System order is SPEC §12.3. Do not reorder without updating the spec. */
+  private simulate(dt: number): void {
+    this.input.flush(dt);
+    if (this.input.fourFingerTap) {
+      this.input.fourFingerTap = false;
+      this.overlay.toggle();
+    }
+    if (this.scene !== SCENE.Run) {
+      this.updateDebug(dt);
+      return;
+    }
+
+    this.run.time += dt;
+    this.levelUpFx.update(dt);
+
+    this.waves.update(this.world, this.run, this.spawner, dt);
+    this.ai.update(this.world.enemies, this.world.hash, this.world.tower.x, this.world.tower.y, dt);
+
+    integrateEnemies(this.world.enemies, dt);
+    integrateProjectiles(this.world.projectiles, dt);
+    integratePickups(
+      this.world.pickups,
+      dt,
+      this.world.tower.x,
+      this.world.tower.y,
+      this.world.tower.stats.get(ST.PickupRadius),
+    );
+
+    this.world.rebuildHash();
+
+    this.targeting.update(this.world.tower, this.world.enemies, this.world.hash, this.run.policy, dt);
+    updateWeapons(this.world, dt);
+    this.projectiles.update(this.world);
+    this.enemyCombat.update(this.world, dt);
+    this.status.update(this.world, dt, AURA_HZ);
+
+    const goldBefore = this.run.gold;
+    resolveDamage(this.world, this.run, this.rng, dt);
+    updateRewards(this.world, this.run);
+    if (this.run.gold > goldBefore) this.run.goldEarned += this.run.gold - goldBefore;
+
+    updateProgression(this.run);
+
+    integrateParticles(this.world.particles, dt);
+    integrateDamageNumbers(this.world.damageNumbers, dt);
+    despawnStrays(this.world.enemies, this.world.tower.x, this.world.tower.y);
+    this.camera.update(dt);
+
+    this.run.waveMax = Math.max(this.run.waveMax, this.run.wave);
+
+    // UI last: it reads the settled state of this tick.
+    this.panel.update(dt);
+    this.panel.setNextWave(this.waves.canCallEarly, BAL.wave.earlyCallGoldBonus);
+    this.hud.update(this.run, this.world, dt);
+
+    // A banked level opens the card screen, which freezes the simulation.
+    if (this.run.pendingCards > 0) this.openCardPick();
+
+    this.updateDebug(dt);
+  }
+
+  private updateDebug(dt: number): void {
+    const w = this.world;
+    this.debugLines[0] = `wave ${this.run.wave} · enemies ${w.enemies.liveCount} · proj ${w.projectiles.liveCount}`;
+    this.debugLines[1] = `hp ${w.tower.hp.toFixed(0)}/${w.tower.hpMax.toFixed(0)} · gold ${this.run.gold.toFixed(0)} · lv ${this.run.level}`;
+    this.debugLines[2] = `kills ${this.run.kills} · skipped ${this.spawner.skipped} · qOvf ${w.queue.overflow}`;
+    const missing = missingSpriteKeys();
+    this.debugLines[3] = missing.length === 0 ? 'sprites ok' : `MISSING ${missing.length}`;
+    this.overlay.update(dt, {
+      fps: this.loop.fps,
+      simMs: this.loop.simMs,
+      renderMs: this.loop.renderMs,
+      steps: this.loop.stepsLastFrame,
+      lines: this.debugLines,
+    });
+  }
+
+  private render(alpha: number): void {
+    syncWorldView(this.view, this.world, this.camera.x, this.camera.y);
+    this.view.showRange = this.scene === SCENE.Run || this.scene === SCENE.CardPick;
+    this.renderer.render(this.view, alpha);
+  }
+
+  /** Read by the headless smoke test. */
+  get diagnostics(): Record<string, number | string | string[]> {
+    return {
+      scene: this.scene,
+      fps: Math.round(this.loop.fps),
+      simMs: Number(this.loop.simMs.toFixed(2)),
+      renderMs: Number(this.loop.renderMs.toFixed(2)),
+      wave: this.run.wave,
+      level: this.run.level,
+      gold: Math.round(this.run.gold),
+      kills: this.run.kills,
+      enemies: this.world.enemies.liveCount,
+      atlasLoaded: this.assets.loaded ? 1 : 0,
+      missingSprites: missingSpriteKeys(),
+    };
+  }
+
+  /** Test hook: drive the machine without touching the DOM. */
+  debugStartRun(): void {
+    this.startRun();
+  }
+}

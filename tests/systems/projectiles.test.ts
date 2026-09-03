@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { World } from '../../src/entities/world.ts';
 import { RunState } from '../../src/core/state.ts';
+import { UPGRADE_COUNT } from '../../src/data/upgrades.ts';
+import { CARD_COUNT } from '../../src/data/cards.ts';
 import { Rng } from '../../src/core/rng.ts';
 import { ProjectileSystem, segmentCircleT } from '../../src/systems/projectiles.ts';
 import { integrateProjectiles } from '../../src/systems/movement.ts';
@@ -50,7 +52,7 @@ describe('projectile collision', () => {
   it('a fast projectile does not tunnel through a small enemy', () => {
     const world = new World();
     const sys = new ProjectileSystem();
-    const run = new RunState();
+    const run = new RunState(UPGRADE_COUNT, CARD_COUNT);
     run.reset(1, 12, 1);
     const rng = new Rng(7);
 
@@ -89,7 +91,7 @@ describe('projectile collision', () => {
   it('pierce lets one shot hit several enemies and never the same one twice', () => {
     const world = new World();
     const sys = new ProjectileSystem();
-    const run = new RunState();
+    const run = new RunState(UPGRADE_COUNT, CARD_COUNT);
     run.reset(1, 12, 1);
     const rng = new Rng(3);
 
@@ -111,7 +113,7 @@ describe('projectile collision', () => {
   it('a hostile projectile damages the tower and nothing else', () => {
     const world = new World();
     const sys = new ProjectileSystem();
-    const run = new RunState();
+    const run = new RunState(UPGRADE_COUNT, CARD_COUNT);
     run.reset(1, 12, 1);
     const rng = new Rng(5);
 
@@ -165,7 +167,7 @@ describe('projectile collision', () => {
   it('deathmark executes a wounded non-boss', () => {
     const world = new World();
     const sys = new ProjectileSystem();
-    const run = new RunState();
+    const run = new RunState(UPGRADE_COUNT, CARD_COUNT);
     run.reset(1, 12, 1);
     const rng = new Rng(11);
     const stats = world.tower.stats;

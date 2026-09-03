@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { World } from '../../src/entities/world.ts';
 import { RunState } from '../../src/core/state.ts';
+import { UPGRADE_COUNT } from '../../src/data/upgrades.ts';
+import { CARD_COUNT } from '../../src/data/cards.ts';
 import { Rng } from '../../src/core/rng.ts';
 import { resolveDamage, killEnemy } from '../../src/systems/damage.ts';
 import { DMG_TARGET_ENEMY, DMG_TARGET_TOWER, DMG_FLAG } from '../../src/core/damageQueue.ts';
@@ -12,7 +14,7 @@ import { FIXED_DT } from '../../src/core/constants.ts';
 
 function makeWorld(): { world: World; run: RunState; rng: Rng } {
   const world = new World();
-  const run = new RunState();
+  const run = new RunState(UPGRADE_COUNT, CARD_COUNT);
   run.reset(1, BAL.progression.xpBase, 1);
   return { world, run, rng: new Rng(1234) };
 }

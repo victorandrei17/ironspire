@@ -9,12 +9,12 @@
 
 | | |
 |---|---|
-| **Milestone atual** | M4 — Vertical slice |
+| **Milestone atual** | M5 — Meta, save e idle |
 | **Última atualização** | 2026-09-03 |
 | **Build roda?** | ✅ `npm run build` limpo |
 | **FPS medido (throttle 6×, wave 20)** | — (sem waves ainda) |
-| **Cobertura `core/` + `data/`** | 134 testes verdes |
-| **Bundle gzip** | 19,6 KB / meta 180 KB |
+| **Cobertura `core/` + `data/`** | 192 testes verdes |
+| **Bundle gzip** | 28,0 KB / meta 180 KB |
 | **Testado em celular real** | ⬜ (validado headless em 412×915 @2x) |
 
 ### Legenda
@@ -30,7 +30,7 @@
 | **M1** | Render + sprites | Torre e um inimigo desenhados **só com placeholders** | ✅ |
 | **M2** | Pools + colisão | 400 inimigos andando a 60 FPS, spatial hash testado | ✅ |
 | **M3** | Combate | Torre atira, acerta, mata, drops aparecem | ✅ |
-| **M4** | **VERTICAL SLICE** | Run completa: waves → upgrades → cartas → morte → resultado | ⬜ |
+| **M4** | **VERTICAL SLICE** | Run completa: waves → upgrades → cartas → morte → resultado | ✅ |
 | **M5** | Meta + save | Núcleos, talentos, offline, save com migração | ⬜ |
 | **M6** | Conteúdo | 9 inimigos, 3 bosses, elites, 18 cartas, balanceamento simulado | ⬜ |
 | **M7** | Polimento | VFX, áudio, feedback, acessibilidade, degradação automática | ⬜ |
@@ -271,33 +271,67 @@
 
 > 🎯 **Este é o marco que o cliente joga.** Ao fim dele, existe um jogo.
 
-- [ ] `src/data/balance.ts`: objeto `BAL` completo de SPEC §6.2
-- [ ] `src/data/waves.ts`: tabela de pesos por wave, interpolação entre âncoras, os 5 padrões (RING/ARC/PINCER/TRICKLE/RUSH)
-- [ ] `src/systems/spawner.ts`: gera a composição da wave com PRNG semeado por `runSeed ^ wave`
-- [ ] `src/systems/waves.ts`: início/fim de wave, gap de 2 s, botão "próxima wave" com +15% de ouro
-- [ ] `src/data/upgrades.ts`: os 8 upgrades com base/growth
-- [ ] `src/ui/upgradePanel.ts`: grid 4×2, tap + hold com auto-repeat (400 ms), botão MAX com **soma de PG fechada**, estados esmaecidos
-- [ ] `src/systems/progression.ts`: XP, `xpToNext`, level-up, slow-mo de 0,35 s
-- [ ] `src/data/cards.ts`: 7 comuns + 5 raras (o resto vai no M6); `apply` **pura**
-- [ ] `src/ui/cardPicker.ts`: 3 opções, raridade por peso, sem repetição, 1 reroll grátis, sem timer
-- [ ] `src/core/state.ts` + `SceneManager`: BOOT→LOADING→MENU→RUN→CARD_PICK/PAUSE→RESULT
-- [ ] `src/ui/hud.ts`: barras de HP/XP, wave, ouro, nível, política de mira
-- [ ] Tela de pausa (com opções) e tela de resultado (wave, kills, tempo, Núcleos ganhos)
-- [ ] Menu inicial mínimo: JOGAR + opções
-- [ ] `src/ui/styles.css`: safe-areas, alvos ≥48 dp, zona do polegar, tipografia
-- [ ] Háptico + som em toda interação de UI
-- [ ] **Teste:** custo MAX == soma da PG; nunca gasta mais que o ouro
-- [ ] **Teste:** curvas de wave monotônicas e finitas até a wave 500
-- [ ] **Teste:** `apply` de toda carta é pura e não gera NaN em nenhum nível
-- [ ] **Verificação:** run completa de 15 min sem erro, no celular real
-- [ ] **Verificação:** rodar sem atlas — ainda 100% jogável
+- [x] `src/data/balance.ts`: objeto `BAL` completo de SPEC §6.2
+- [x] `src/data/waves.ts`: tabela de pesos por wave, interpolação entre âncoras, os 5 padrões (RING/ARC/PINCER/TRICKLE/RUSH)
+- [x] `src/systems/spawner.ts`: gera a composição da wave com PRNG semeado por `runSeed ^ wave`
+- [x] `src/systems/waves.ts`: início/fim de wave, gap de 2 s, botão "próxima wave" com +15% de ouro
+- [x] `src/data/upgrades.ts`: os 8 upgrades com base/growth
+- [x] `src/ui/upgradePanel.ts`: grid 4×2, tap + hold com auto-repeat (400 ms), botão MAX com **soma de PG fechada**, estados esmaecidos
+- [x] `src/systems/progression.ts`: XP, `xpToNext`, level-up, slow-mo de 0,35 s
+- [x] `src/data/cards.ts`: 7 comuns + 5 raras (o resto vai no M6); `apply` **pura**
+- [x] `src/ui/cardPicker.ts`: 3 opções, raridade por peso, sem repetição, 1 reroll grátis, sem timer
+- [x] `src/core/state.ts` + `SceneManager`: BOOT→LOADING→MENU→RUN→CARD_PICK/PAUSE→RESULT
+- [x] `src/ui/hud.ts`: barras de HP/XP, wave, ouro, nível, política de mira
+- [x] Tela de pausa (com opções) e tela de resultado (wave, kills, tempo, Núcleos ganhos)
+- [x] Menu inicial mínimo: JOGAR + opções
+- [x] `src/ui/styles.css`: safe-areas, alvos ≥48 dp, zona do polegar, tipografia
+- [x] Háptico + som em toda interação de UI
+- [x] **Teste:** custo MAX == soma da PG; nunca gasta mais que o ouro
+- [x] **Teste:** curvas de wave monotônicas e finitas até a wave 500
+- [x] **Teste:** `apply` de toda carta é pura e não gera NaN em nenhum nível
+- [~] **Verificação:** run completa de 15 min sem erro, no celular real
+      _(run completa de 120 s verificada headless, console limpo; falta aparelho real)_
+- [x] **Verificação:** rodar sem atlas — ainda 100% jogável
 
-**Critério de aceite:** um estranho pega o celular, entende o jogo sem tutorial e joga 10 minutos.
+**Critério de aceite:** um estranho pega o celular, entende o jogo sem tutorial e joga 10 minutos. ⏳ — jogável de ponta a ponta; falta o teste com uma pessoa real.
 
-**FPS medido:** `—`
+**FPS medido:** `60 FPS · sim 0,07 ms + render 0,09 ms` (run real de 120 s, dpr 2)
 
 **Notas:**
 ```
+- src/game.ts é o novo topo: máquina de cenas, sistemas e UI num lugar só. main.ts
+  virou 20 linhas de bootstrap. Sistemas continuam sem saber que cenas existem.
+- BUG DE LAYOUT clássico: `.modal { display:flex }` vence o `[hidden]` do
+  user-agent (que é display:none na menor especificidade) — todas as modais
+  apareciam empilhadas. Corrigido com `[hidden] { display:none !important }`.
+- BUG REAL NO MAX (achado por teste): a soma fechada de PG é um limite SUPERIOR
+  do custo real, porque a loja cobra floor() por nível. Resultado: o MAX vendia
+  menos níveis do que o ouro permitia E cobrava a mais. Agora a forma fechada só
+  dá o ponto de partida O(1) e uma correção percorre os custos exatos.
+- BUG DE DESIGN (achado por teste): Aura Gélida usava `1 - 0.22*l` com piso em
+  0.35 — o nível 4 não fazia absolutamente nada. Trocado por multiplicativo
+  (0.78^l): todo nível vale, e nunca chega a parada total.
+- Cartas: `apply` é pura e recebe o nível CUMULATIVO. applyCards zera as camadas
+  antes de reaplicar, então rodar de novo nunca empilha. Há teste que quebra o
+  Math.random durante o apply para garantir que nenhuma carta use RNG.
+- Níveis são BANCADOS (pendingCards), não consumidos na hora: um boss pode
+  cruzar dois limiares no mesmo tick e o jogador é dono das duas cartas.
+- Spawner sorteia a WAVE INTEIRA de uma vez a partir de mixSeed(runSeed, wave) e
+  guarda um cronograma. Reprodutível independente do timing de frame — é o que
+  determinismo significa na prática.
+- ST/TF migraram para data/stats.ts pelo mesmo motivo que ES/EF antes: as tabelas
+  de upgrade e carta precisam deles e data/ não pode importar entities/.
+- Jitter de spawn ficou limitado a 0,45 s dentro do grupo. Estava até 60% do
+  delay do grupo, o que empurrava o grupo 0 para fora do zero e abria toda wave
+  com a tela vazia.
+- Boss de wave 10 existe como estrutura (HP/ouro/XP do bloco BAL.boss, flag
+  EF.Boss, barra própria no topo). Os PADRÕES de ataque são M6 — não inventei
+  mecânica aqui.
+- VERIFICAÇÃO DE RUN COMPLETA (headless, 120 s, auto-jogando): onda 6, nível 5,
+  53 abates, 103 de ouro, torre morreu, tela de resultado com 1 Núcleo. 60 FPS
+  cravados, console limpo, heap 1,84 → 2,04 MB (plano), sem atlas.
+- Balanceamento NÃO foi ajustado. O alvo do SPEC (run 1 na wave 12-20) é do M6,
+  com npm run balance. A run 1 crua morrendo na 6 é dado, não conclusão.
 ```
 
 ---

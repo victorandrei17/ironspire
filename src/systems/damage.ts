@@ -57,7 +57,7 @@ export function resolveDamage(world: World, run: RunState, rng: Rng, dt: number)
         (e.y[i] ?? 0) - (e.radius[i] ?? 0),
         amount,
         crit ? DIGIT_CRIT : DIGIT_WHITE,
-        crit ? 0.28 : 0.2,
+        crit ? 1.0 : 0.72,
       );
 
       if (stats.flags & TF.Lifesteal) {
@@ -118,7 +118,7 @@ function applyTowerDamage(
   tower.hp -= amount;
   tower.iframe = BAL.tower.iframes;
   tower.flash = 1;
-  world.damageNumbers.spawn(tower.x, tower.y - 40, amount, DIGIT_DAMAGE, 0.26);
+  world.damageNumbers.spawn(tower.x, tower.y - 44, amount, DIGIT_DAMAGE, 0.95);
   bus.emit(EV.TowerDamaged, amount, tower.hp, tower.hpMax);
   // Shake scales with the bite taken out of the bar, not with the raw number:
   // 12 damage means something very different at wave 3 and at wave 40.
@@ -164,7 +164,7 @@ function healTower(world: World, amount: number): void {
   const before = t.hp;
   t.hp = Math.min(t.hpMax, t.hp + amount);
   const healed = t.hp - before;
-  if (healed > 0.5) world.damageNumbers.spawn(t.x, t.y - 56, healed, DIGIT_HEAL, 0.2);
+  if (healed > 0.5) world.damageNumbers.spawn(t.x, t.y - 60, healed, DIGIT_HEAL, 0.7);
 }
 
 /** Thorns hits back through the queue, so the reflected hit follows every rule. */

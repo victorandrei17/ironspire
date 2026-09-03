@@ -1,0 +1,158 @@
+import { el, setText, setClass, show } from './dom.ts';
+import type { RunState } from '../core/state.ts';
+import type { TowerStats } from '../entities/tower.ts';
+import { UPGRADES } from '../data/upgrades.ts';
+import { costOf, isMaxed, buyUpgrade, buyMax, maxAffordable } from '../systems/upgrades.ts';
+import { fmt } from '../core/format.ts';
+import { haptic, HAPTIC } from '../platform/haptics.ts';
+
+/** Hold this long before auto-repeat kicks in (SPEC §7.2). */
+const HOLD_DELAY = 0.4;
+/** Then buy this often while the finger stays down. */
+const REPEAT_PERIOD = 0.09;
+
+/**
+ * The 4x2 upgrade grid (SPEC §7.2, §11.1).
+ *
+ * Buttons dim when unaffordable but NEVER disappear: a grid that reflows under
+ * the thumb is how you get mis-taps, and the player needs to see what they are
+ * saving for.
+ */
+export class UpgradePanel {
+  readonly root: HTMLDivElement;
+
+  private readonly buttons: HTMLButtonElement[] = [];
+  private readonly names: HTMLSpanElement[] = [];
+  private readonly levels: HTMLSpanElement[] = [];
+  private readonly costs: HTMLSpanElement[] = [];
+  private readonly maxBtn: HTMLButtonElement;
+  private readonly nextWaveBtn: HTMLButtonElement;
+
+  /** Index being held, or -1. */
+  private holding = -1;
+  private holdT = 0;
+  private repeatT = 0;
+  /** When true, a press buys as many levels as the gold allows. */
+  private maxMode = false;
+
+  constructor(
+    parent: HTMLElement,
+    private readonly run: RunState,
+    private readonly stats: TowerStats,
+    private readonly onNextWave: () => void,
+  ) {
+    this.root = el('div', 'upgrades', parent);
+
+    const grid = el('div', 'upgrade-grid', this.root);
+    for (let i = 0; i < UPGRADES.length; i++) {
+      const def = UPGRADES[i];
+      if (def === undefined) continue;
+      const b = el('button', 'up-btn interactive', grid);
+      b.type = 'button';
+      const name = el('span', 'up-name', b);
+      name.textContent = def.name;
+      const level = el('span', 'up-level', b);
+      const cost = el('span', 'up-cost', b);
+      this.buttons.push(b);
+      this.names.push(name);
+      this.levels.push(level);
+      this.costs.push(cost);
+      this.bindHold(b, i);
+    }
+
+    const rail = el('div', 'upgrade-rail', this.root);
+    this.maxBtn = el('button', 'max-btn interactive', rail);
+    this.maxBtn.type = 'button';
+    this.maxBtn.textContent = 'MAX';
+    this.maxBtn.addEventListener('click', () => {
+      this.maxMode = !this.maxMode;
+      setClass(this.maxBtn, 'on', this.maxMode);
+      haptic(HAPTIC.Light);
+    });
+
+    this.nextWaveBtn = el('button', 'next-wave interactive', this.root);
+    this.nextWaveBtn.type = 'button';
+    this.nextWaveBtn.addEventListener('click', () => {
+      haptic(HAPTIC.Medium);
+      this.onNextWave();
+    });
+  }
+
+  private bindHold(b: HTMLButtonElement, idx: number): void {
+    const down = (e: PointerEvent): void => {
+      e.preventDefault();
+      b.setPointerCapture(e.pointerId);
+      this.holding = idx;
+      this.holdT = 0;
+      this.repeatT = 0;
+      this.buy(idx);
+    };
+    const up = (): void => {
+      if (this.holding === idx) this.holding = -1;
+    };
+    b.addEventListener('pointerdown', down);
+    b.addEventListener('pointerup', up);
+    b.addEventListener('pointercancel', up);
+    b.addEventListener('pointerleave', up);
+  }
+
+  private buy(idx: number): void {
+    const bought = this.maxMode
+      ? buyMax(this.run, this.stats, idx) > 0
+      : buyUpgrade(this.run, this.stats, idx);
+    if (bought) haptic(HAPTIC.Light);
+  }
+
+  /** Drives auto-repeat. Called from the fixed tick so the rate is stable. */
+  update(dt: number): void {
+    if (this.holding >= 0) {
+      this.holdT += dt;
+      if (this.holdT >= HOLD_DELAY) {
+        this.repeatT += dt;
+        while (this.repeatT >= REPEAT_PERIOD) {
+          this.repeatT -= REPEAT_PERIOD;
+          this.buy(this.holding);
+        }
+      }
+    }
+    this.refresh();
+  }
+
+  private refresh(): void {
+    for (let i = 0; i < this.buttons.length; i++) {
+      const b = this.buttons[i];
+      const levelEl = this.levels[i];
+      const costEl = this.costs[i];
+      if (b === undefined || levelEl === undefined || costEl === undefined) continue;
+
+      const level = this.run.upgradeLevels[i] ?? 0;
+      setText(levelEl, level > 0 ? `Lv.${level}` : '');
+
+      if (isMaxed(this.run, i)) {
+        setText(costEl, 'MÁX');
+        setClass(b, 'dim', true);
+        continue;
+      }
+      if (this.maxMode) {
+        const { levels, cost } = maxAffordable(this.run, i);
+        setText(costEl, levels > 0 ? `${levels}× ${fmt(cost)}` : fmt(costOf(this.run, i)));
+        setClass(b, 'dim', levels === 0);
+      } else {
+        const cost = costOf(this.run, i);
+        setText(costEl, fmt(cost));
+        setClass(b, 'dim', this.run.gold < cost);
+      }
+    }
+  }
+
+  /** Shows or hides the early-call button and its bonus label. */
+  setNextWave(available: boolean, bonusPct: number): void {
+    show(this.nextWaveBtn, available);
+    if (available) setText(this.nextWaveBtn, `PRÓXIMA ONDA  +${Math.round(bonusPct * 100)}% 🪙`);
+  }
+
+  setVisible(v: boolean): void {
+    show(this.root, v);
+    if (!v) this.holding = -1;
+  }
+}

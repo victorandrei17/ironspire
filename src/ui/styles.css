@@ -28,6 +28,13 @@
   box-sizing: border-box;
 }
 
+/* The UA stylesheet's [hidden] rule is display:none at the lowest specificity,
+   so any `display: flex/grid` class beats it and the element stays visible.
+   Everything here toggles visibility through el.hidden, so this has to win. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -113,4 +120,457 @@ button.dim {
   line-height: 1.35;
   white-space: pre;
   pointer-events: none;
+}
+
+/* ===========================================================================
+   HUD — anchored to the REAL screen edges, not the letterboxed arena, so the
+   thumb reaches the same place on every device (SPEC §3.2, §11.1).
+   =========================================================================== */
+
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hud-top {
+  position: absolute;
+  top: calc(var(--safe-t) + 8px);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.hud-wave {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 0.95rem;
+  color: var(--ink-dim);
+  text-shadow: 0 1px 3px #000;
+}
+
+.topbar {
+  position: absolute;
+  top: calc(var(--safe-t) + 4px);
+  right: calc(var(--safe-r) + 8px);
+  z-index: 5;
+}
+
+.icon-btn {
+  width: var(--tap);
+  height: var(--tap);
+  padding: 0;
+  font-size: 1.1rem;
+  background: rgba(21, 26, 35, 0.8);
+}
+
+.hud-banner {
+  position: absolute;
+  top: calc(var(--safe-t) + 40px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  font-size: 1.05rem;
+  color: var(--gold);
+  text-shadow: 0 2px 8px #000;
+  animation: banner-in 220ms ease-out;
+}
+
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.boss-bar {
+  position: absolute;
+  top: calc(var(--safe-t) + 34px);
+  left: 12%;
+  right: 12%;
+  text-align: center;
+}
+
+.boss-name {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--danger);
+  margin-bottom: 3px;
+}
+
+.boss-track {
+  height: 10px;
+}
+
+.boss-fill {
+  background: linear-gradient(90deg, #ff7a5c, #e2564d);
+}
+
+/* --- HP / XP bars, sitting just above the thumb zone ---------------------- */
+
+.hud-bars {
+  position: absolute;
+  left: calc(var(--safe-l) + 14px);
+  right: calc(var(--safe-r) + 14px);
+  bottom: calc(var(--safe-b) + 244px);
+  display: grid;
+  gap: 4px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar-track {
+  height: 13px;
+  border-radius: 7px;
+  background: rgba(8, 11, 16, 0.75);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  width: var(--p, 0%);
+  border-radius: 6px;
+  /* Transitioning width would lag the simulation; the bar is written every
+     frame, so it must move instantly. */
+  background: var(--accent);
+}
+
+.hp-fill {
+  background: linear-gradient(90deg, #f08a80, #e2564d);
+}
+
+.hp-fill.critical {
+  animation: hp-pulse 620ms ease-in-out infinite;
+}
+
+@keyframes hp-pulse {
+  50% {
+    filter: brightness(1.5);
+  }
+}
+
+.xp-track {
+  height: 8px;
+}
+
+.xp-fill {
+  background: linear-gradient(90deg, #7ac2ff, #4ea8f2);
+}
+
+.bar-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-dim);
+  text-shadow: 0 1px 2px #000;
+  min-width: 62px;
+  text-align: right;
+}
+
+/* --- Gold and targeting policy -------------------------------------------- */
+
+.hud-purse {
+  position: absolute;
+  left: calc(var(--safe-l) + 14px);
+  right: calc(var(--safe-r) + 14px);
+  bottom: calc(var(--safe-b) + 188px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gold {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--gold);
+  text-shadow: 0 1px 4px #000;
+}
+
+.policy {
+  min-width: 84px;
+  height: var(--tap);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  background: rgba(21, 26, 35, 0.9);
+}
+
+/* ===========================================================================
+   Upgrade grid — 4x2 in the bottom 35% of the screen (SPEC §11.2 rule 2).
+   =========================================================================== */
+
+.upgrades {
+  position: absolute;
+  left: calc(var(--safe-l) + 10px);
+  right: calc(var(--safe-r) + 10px);
+  bottom: calc(var(--safe-b) + 8px);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'grid rail'
+    'next next';
+  gap: 8px;
+}
+
+.upgrade-grid {
+  grid-area: grid;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.up-btn {
+  /* 48dp minimum touch target with 8dp spacing (SPEC §11.2 rule 1). */
+  min-height: 54px;
+  padding: 5px 3px;
+  display: grid;
+  gap: 1px;
+  align-content: center;
+  justify-items: center;
+  background: rgba(21, 26, 35, 0.92);
+  touch-action: none;
+}
+
+.up-name {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.up-level {
+  font-size: 0.6rem;
+  color: var(--ink-dim);
+  min-height: 0.75em;
+}
+
+.up-cost {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.upgrade-rail {
+  grid-area: rail;
+  display: grid;
+}
+
+.max-btn {
+  width: 56px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.max-btn.on {
+  background: var(--gold);
+  color: #241c04;
+  border-color: var(--gold);
+}
+
+.next-wave {
+  grid-area: next;
+  width: 100%;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  background: rgba(127, 212, 168, 0.16);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ===========================================================================
+   Modals — one at a time, always (SPEC §11.2 rule 7).
+   =========================================================================== */
+
+.modal {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: calc(var(--safe-t) + 20px) 20px calc(var(--safe-b) + 20px);
+  background: rgba(6, 8, 12, 0.86);
+  pointer-events: auto;
+  animation: modal-in 160ms ease-out;
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--ink);
+}
+
+.modal button {
+  min-width: 240px;
+  max-width: 90vw;
+}
+
+.modal button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06241a;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.game-title {
+  font-size: 2.3rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  color: var(--ink);
+  text-shadow: 0 0 24px rgba(127, 212, 168, 0.35);
+}
+
+.game-sub {
+  font-size: 0.9rem;
+  color: var(--ink-dim);
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+/* --- Card picker ---------------------------------------------------------- */
+
+.card-list {
+  display: grid;
+  gap: 10px;
+  width: min(420px, 92vw);
+}
+
+.card {
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+  text-align: left;
+  padding: 12px 14px;
+  min-height: 76px;
+  border-left-width: 4px;
+  background: var(--panel-2);
+}
+
+.card-rarity {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.card-name {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.card-desc {
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+  line-height: 1.35;
+}
+
+.card-level {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--ink-dim);
+  letter-spacing: 0.08em;
+}
+
+.card.r-common {
+  border-left-color: var(--rar-common);
+}
+.card.r-common .card-rarity {
+  color: var(--rar-common);
+}
+.card.r-rare {
+  border-left-color: var(--rar-rare);
+}
+.card.r-rare .card-rarity {
+  color: var(--rar-rare);
+}
+.card.r-epic {
+  border-left-color: var(--rar-epic);
+}
+.card.r-epic .card-rarity {
+  color: var(--rar-epic);
+}
+.card.r-legend {
+  border-left-color: var(--rar-legend);
+}
+.card.r-legend .card-rarity {
+  color: var(--rar-legend);
+}
+
+.reroll {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  min-width: 200px;
+}
+
+/* --- Result --------------------------------------------------------------- */
+
+.result-stats {
+  display: grid;
+  gap: 6px;
+  width: min(340px, 88vw);
+  margin: 6px 0 14px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 7px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.stat-label {
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+}
+
+.stat-value {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+/* Short screens: pull the HUD in so the arena never gets covered. */
+@media (max-height: 700px) {
+  .hud-bars {
+    bottom: calc(var(--safe-b) + 224px);
+  }
+  .hud-purse {
+    bottom: calc(var(--safe-b) + 168px);
+  }
+  .up-btn {
+    min-height: 48px;
+  }
 }

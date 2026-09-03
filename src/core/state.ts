@@ -32,6 +32,11 @@ export type TargetPolicy = (typeof POLICY)[keyof typeof POLICY];
 export const POLICY_COUNT = 5;
 
 export class RunState {
+  /** Levels bought per upgrade, and per card taken. Sized by the caller so
+   *  `core/` stays free of any dependency on the data tables. */
+  readonly upgradeLevels: Int32Array;
+  readonly cardLevels: Int32Array;
+
   seed = 0;
   wave = 0;
   /** Seconds elapsed in this run. */
@@ -50,8 +55,19 @@ export class RunState {
   over = false;
   /** Gold bonus multiplier for the current wave (early-call reward). */
   waveGoldBonus = 1;
+  /** Highest wave reached, which is what the end-of-run reward pays out on. */
+  waveMax = 0;
+  /** Total gold earned this run, for the result screen and the idle rate. */
+  goldEarned = 0;
+
+  constructor(upgradeCount: number, cardCount: number) {
+    this.upgradeLevels = new Int32Array(upgradeCount);
+    this.cardLevels = new Int32Array(cardCount);
+  }
 
   reset(seed: number, xpToNext: number, rerolls: number): void {
+    this.upgradeLevels.fill(0);
+    this.cardLevels.fill(0);
     this.seed = seed;
     this.wave = 0;
     this.time = 0;
@@ -66,5 +82,7 @@ export class RunState {
     this.rerollsLeft = rerolls;
     this.over = false;
     this.waveGoldBonus = 1;
+    this.waveMax = 0;
+    this.goldEarned = 0;
   }
 }

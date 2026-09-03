@@ -74,6 +74,30 @@ if (throttle > 1) {
 
 const query = process.argv.find((a) => a.startsWith('--q=')) ?? '';
 await page.goto(`http://127.0.0.1:${port}/${query ? '?' + query.slice(4) : ''}`, { waitUntil: 'load' });
+// --play starts a run immediately, so the profile is real gameplay.
+// --auto also buys upgrades and takes cards, which is what an actual run does.
+if (process.argv.includes('--play') || process.argv.includes('--auto')) {
+  await page.evaluate(() => globalThis.ironSpire?.play?.());
+}
+if (process.argv.includes('--auto')) {
+  await page.evaluate(() => {
+    // Spend whatever is affordable and clear any card screen, twice a second.
+    setInterval(() => {
+      for (const b of document.querySelectorAll('.card:not([hidden])')) {
+        b.click();
+        return;
+      }
+      const ups = [...document.querySelectorAll('.up-btn:not(.dim)')];
+      if (ups.length > 0) {
+        const pick = ups[Math.floor(Math.random() * ups.length)];
+        pick.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+        pick.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+      }
+      const next = document.querySelector('.next-wave:not([hidden])');
+      if (next) next.click();
+    }, 500);
+  });
+}
 await page.evaluate(() => {
   globalThis.__frames = 0;
   const tick = () => {
@@ -97,7 +121,7 @@ const sampler = setInterval(async () => {
 await page.waitForTimeout(seconds * 1000);
 clearInterval(sampler);
 const frames = await page.evaluate(() => globalThis.__frames);
-const hooks = await page.evaluate(() => globalThis.ironSpire ?? null);
+const hooks = await page.evaluate(() => globalThis.ironSpire?.state ?? null);
 
 await page.screenshot({ path: outPng });
 await browser.close();

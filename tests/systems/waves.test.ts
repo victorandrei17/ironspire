@@ -1,0 +1,214 @@
+import { describe, it, expect } from 'vitest';
+import { World } from '../../src/entities/world.ts';
+import { RunState } from '../../src/core/state.ts';
+import { Spawner } from '../../src/systems/spawner.ts';
+import { WaveSystem, WAVE_PHASE } from '../../src/systems/waves.ts';
+import { UPGRADE_COUNT } from '../../src/data/upgrades.ts';
+import { CARD_COUNT } from '../../src/data/cards.ts';
+import { BAL } from '../../src/data/balance.ts';
+import { enemyCount, isBossWave } from '../../src/data/waves.ts';
+import { EF } from '../../src/data/enemyFlags.ts';
+import { FIXED_DT, R_SPAWN } from '../../src/core/constants.ts';
+import { xpToNext, coresForRun } from '../../src/systems/progression.ts';
+
+function setup(): { world: World; run: RunState; spawner: Spawner; waves: WaveSystem } {
+  const world = new World();
+  const run = new RunState(UPGRADE_COUNT, CARD_COUNT);
+  run.reset(12345, xpToNext(1), 1);
+  const spawner = new Spawner();
+  const waves = new WaveSystem();
+  waves.reset();
+  return { world, run, spawner, waves };
+}
+
+function tick(
+  s: ReturnType<typeof setup>,
+  seconds: number,
+  clearEnemies = false,
+): void {
+  const steps = Math.round(seconds / FIXED_DT);
+  for (let t = 0; t < steps; t++) {
+    s.waves.update(s.world, s.run, s.spawner, FIXED_DT);
+    if (clearEnemies) s.world.enemies.reset();
+  }
+}
+
+/** Runs until the current wave ends, killing everything as it spawns. */
+function tickUntilGap(s: ReturnType<typeof setup>, maxSeconds = 120): void {
+  const steps = Math.round(maxSeconds / FIXED_DT);
+  for (let t = 0; t < steps; t++) {
+    s.waves.update(s.world, s.run, s.spawner, FIXED_DT);
+    s.world.enemies.reset();
+    if (s.waves.phase === WAVE_PHASE.Gap) return;
+  }
+}
+
+describe('wave pacing (SPEC §6.1)', () => {
+  it('waits out the gap, then starts wave 1', () => {
+    const s = setup();
+    expect(s.waves.phase).toBe(WAVE_PHASE.Gap);
+    expect(s.run.wave).toBe(0);
+    tick(s, BAL.wave.gap + 0.1);
+    expect(s.waves.phase).toBe(WAVE_PHASE.Active);
+    expect(s.run.wave).toBe(1);
+  });
+
+  it('releases the whole wave and no more', () => {
+    const s = setup();
+    tick(s, BAL.wave.gap + 0.1);
+    tick(s, 40);
+    expect(s.spawner.allReleased).toBe(true);
+    // Splitters can add children, so released is the floor, not the ceiling.
+    expect(s.spawner.released).toBeGreaterThanOrEqual(enemyCount(1));
+  });
+
+  it('ends the wave only once the arena is clear', () => {
+    const s = setup();
+    tick(s, BAL.wave.gap + 0.1);
+    tick(s, 40);
+    expect(s.waves.phase).toBe(WAVE_PHASE.Active); // enemies still alive
+    s.world.enemies.reset();
+    tick(s, 0.1);
+    expect(s.waves.phase).toBe(WAVE_PHASE.Gap);
+  });
+
+  it('calling the next wave early grants the gold bonus', () => {
+    const s = setup();
+    tick(s, BAL.wave.gap + 0.1);
+    tickUntilGap(s);
+    expect(s.waves.canCallEarly).toBe(true);
+    expect(s.waves.callEarly(s.world, s.run, s.spawner)).toBe(true);
+    expect(s.run.wave).toBe(2);
+    expect(s.run.waveGoldBonus).toBeCloseTo(1 + BAL.wave.earlyCallGoldBonus);
+  });
+
+  it('the bonus does not carry into the following wave', () => {
+    const s = setup();
+    tick(s, BAL.wave.gap + 0.1);
+    tickUntilGap(s);
+    s.waves.callEarly(s.world, s.run, s.spawner);
+    expect(s.run.waveGoldBonus).toBeGreaterThan(1);
+    tickUntilGap(s);
+    expect(s.run.waveGoldBonus).toBe(1);
+  });
+
+  it('cannot be called early while a wave is running', () => {
+    const s = setup();
+    tick(s, BAL.wave.gap + 0.1);
+    expect(s.waves.canCallEarly).toBe(false);
+    expect(s.waves.callEarly(s.world, s.run, s.spawner)).toBe(false);
+  });
+});
+
+describe('spawner (SPEC §6.3, §6.4)', () => {
+  it('is reproducible from the run seed and wave number', () => {
+    const positions = (): number[] => {
+      const s = setup();
+      s.spawner.beginWave(s.world, 999, 7);
+      for (let t = 0; t < 60 * 30; t++) s.spawner.update(s.world, FIXED_DT);
+      const out: number[] = [];
+      for (let i = 0; i < s.world.enemies.count; i++) {
+        out.push(s.world.enemies.x[i] ?? 0, s.world.enemies.y[i] ?? 0, s.world.enemies.defIdx[i] ?? 0);
+      }
+      return out;
+    };
+    expect(positions()).toEqual(positions());
+  });
+
+  it('different waves of the same run differ', () => {
+    const a = setup();
+    a.spawner.beginWave(a.world, 999, 7);
+    const b = setup();
+    b.spawner.beginWave(b.world, 999, 8);
+    for (let t = 0; t < 60 * 30; t++) {
+      a.spawner.update(a.world, FIXED_DT);
+      b.spawner.update(b.world, FIXED_DT);
+    }
+    expect(a.world.enemies.liveCount).not.toBe(b.world.enemies.liveCount);
+  });
+
+  it('spawns on the spawn ring, outside the arena', () => {
+    const s = setup();
+    s.spawner.beginWave(s.world, 1, 1);
+    s.spawner.update(s.world, 1);
+    expect(s.world.enemies.liveCount).toBeGreaterThan(0);
+    for (let i = 0; i < s.world.enemies.count; i++) {
+      if (s.world.enemies.alive[i] === 0) continue;
+      const dx = (s.world.enemies.x[i] ?? 0) - s.world.tower.x;
+      const dy = (s.world.enemies.y[i] ?? 0) - s.world.tower.y;
+      expect(Math.sqrt(dx * dx + dy * dy)).toBeCloseTo(R_SPAWN, 3);
+    }
+  });
+
+  it('only spawns archetypes unlocked for that wave', () => {
+    const s = setup();
+    s.spawner.beginWave(s.world, 3, 1);
+    for (let t = 0; t < 60 * 30; t++) s.spawner.update(s.world, FIXED_DT);
+    for (let i = 0; i < s.world.enemies.count; i++) {
+      if (s.world.enemies.alive[i] === 0) continue;
+      expect(s.world.enemies.defIdx[i]).toBe(0); // only grunts at wave 1
+    }
+  });
+
+  it('puts a boss on a boss wave and nowhere else', () => {
+    const countBosses = (wave: number): number => {
+      const s = setup();
+      s.spawner.beginWave(s.world, 42, wave);
+      for (let t = 0; t < 60 * 60; t++) s.spawner.update(s.world, FIXED_DT);
+      let n = 0;
+      for (let i = 0; i < s.world.enemies.count; i++) {
+        if (s.world.enemies.alive[i] === 1 && ((s.world.enemies.flags[i] ?? 0) & EF.Boss) !== 0) n++;
+      }
+      return n;
+    };
+    expect(isBossWave(10)).toBe(true);
+    expect(countBosses(10)).toBe(1);
+    expect(countBosses(9)).toBe(0);
+  });
+
+  it('never spawns elites before the unlock wave', () => {
+    const s = setup();
+    for (let wave = 1; wave < BAL.elite.startWave; wave++) {
+      s.world.enemies.reset();
+      s.spawner.beginWave(s.world, wave * 31, wave);
+      for (let t = 0; t < 60 * 60; t++) s.spawner.update(s.world, FIXED_DT);
+      for (let i = 0; i < s.world.enemies.count; i++) {
+        if (s.world.enemies.alive[i] === 0) continue;
+        expect((s.world.enemies.flags[i] ?? 0) & EF.Elite).toBe(0);
+      }
+    }
+  });
+
+  it('skips spawns instead of growing the pool when it is full', () => {
+    const s = setup();
+    // Fill the pool, then run a late wave that wants far more than fits.
+    for (let k = 0; k < s.world.enemies.cap; k++) s.world.enemies.spawn(0, 0, 0, 0, 1, 1);
+    s.spawner.beginWave(s.world, 7, 90);
+    for (let t = 0; t < 60 * 60; t++) s.spawner.update(s.world, FIXED_DT);
+    expect(s.world.enemies.liveCount).toBe(s.world.enemies.cap);
+    expect(s.spawner.skipped).toBeGreaterThan(0);
+  });
+});
+
+describe('progression (SPEC §7.3, §2.3)', () => {
+  it('xpToNext grows and never goes non-finite', () => {
+    for (let l = 1; l <= 500; l++) {
+      const v = xpToNext(l);
+      expect(Number.isFinite(v)).toBe(true);
+      expect(v).toBeGreaterThan(0);
+      if (l > 1) expect(v).toBeGreaterThanOrEqual(xpToNext(l - 1));
+    }
+  });
+
+  it('core reward matches the spec examples', () => {
+    // SPEC §10.1: wave 12 -> 5, wave 25 -> 18, wave 50 -> 56, wave 100 -> 172
+    expect(coresForRun(12)).toBe(5);
+    expect(coresForRun(25)).toBe(18);
+    expect(coresForRun(50)).toBe(56);
+    expect(coresForRun(100)).toBe(172);
+  });
+
+  it('a wave-0 run earns nothing', () => {
+    expect(coresForRun(0)).toBe(0);
+  });
+});
