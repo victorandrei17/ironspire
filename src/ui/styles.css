@@ -1,0 +1,116 @@
+/* Iron Spire — UI layer. DOM sits on top of the canvas (SPEC §11.3). */
+
+:root {
+  --bg: #0b0d12;
+  --panel: #151a23;
+  --panel-2: #1d2531;
+  --line: #2b3543;
+  --ink: #e8edf5;
+  --ink-dim: #94a1b5;
+  --gold: #f2c14e;
+  --xp: #4ea8f2;
+  --hp: #e2564d;
+  --accent: #7fd4a8;
+  --danger: #e2564d;
+  --rar-common: #8b97a8;
+  --rar-rare: #4ea8f2;
+  --rar-epic: #a86ff0;
+  --rar-legend: #f2c14e;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --ui-scale: 1;
+  --tap: 48px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  /* Never below 14dp (SPEC §11.2 rule 5). */
+  font-size: calc(15px * var(--ui-scale));
+  line-height: 1.25;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: var(--bg);
+}
+
+/* The UI container never eats taps; only its interactive children do. */
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#ui button,
+#ui .interactive {
+  pointer-events: auto;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 10px;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: transform 60ms ease-out;
+}
+
+button:active {
+  transform: scale(0.94);
+}
+
+button[disabled],
+button.dim {
+  opacity: 0.42;
+}
+
+.debug-overlay {
+  position: absolute;
+  top: calc(var(--safe-t) + 4px);
+  left: calc(var(--safe-l) + 4px);
+  z-index: 100;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #9dfacd;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: pre;
+  pointer-events: none;
+}

@@ -9,13 +9,13 @@
 
 | | |
 |---|---|
-| **Milestone atual** | M0 — Fundação |
-| **Última atualização** | _(preencher)_ |
-| **Build roda?** | ⬜ não iniciado |
-| **FPS medido (throttle 6×, wave 20)** | — |
-| **Cobertura `core/` + `data/`** | — |
-| **Bundle gzip** | — / meta 180 KB |
-| **Testado em celular real** | ⬜ |
+| **Milestone atual** | M1 — Render e sprites |
+| **Última atualização** | 2026-09-03 |
+| **Build roda?** | ✅ `npm run build` limpo |
+| **FPS medido (throttle 6×, wave 20)** | — (sem waves ainda) |
+| **Cobertura `core/` + `data/`** | 40 testes verdes |
+| **Bundle gzip** | 3,6 KB / meta 180 KB |
+| **Testado em celular real** | ⬜ (validado headless em 412×915 @2x) |
 
 ### Legenda
 `[ ]` a fazer · `[x]` feito e verificado · `[~]` em andamento · `[!]` bloqueado · `[-]` cancelado (com motivo)
@@ -26,7 +26,7 @@
 
 | Milestone | Objetivo | Entregável verificável | Status |
 |-----------|----------|------------------------|--------|
-| **M0** | Fundação | Canvas escalando, loop fixo, input, overlay de debug | ⬜ |
+| **M0** | Fundação | Canvas escalando, loop fixo, input, overlay de debug | ✅ |
 | **M1** | Render + sprites | Torre e um inimigo desenhados **só com placeholders** | ⬜ |
 | **M2** | Pools + colisão | 400 inimigos andando a 60 FPS, spatial hash testado | ⬜ |
 | **M3** | Combate | Torre atira, acerta, mata, drops aparecem | ⬜ |
@@ -42,30 +42,48 @@
 
 **Objetivo:** um canvas preto que escala certo em qualquer celular, com loop determinístico e ferramenta de debug. Sem isso, tudo depois é chute.
 
-- [ ] `npm create vite` com template `vanilla-ts`; limpar boilerplate
-- [ ] `tsconfig.json` com todas as flags de CLAUDE.md §4.1
-- [ ] ESLint + Prettier; script `lint` com `--max-warnings 0`
-- [ ] Vitest configurado (ambiente `node` para `core`/`data`, `jsdom` para `ui`)
-- [ ] `index.html`: viewport com `viewport-fit=cover`, `touch-action:none`, `overscroll-behavior:none`, tema escuro
-- [ ] `src/core/constants.ts` com as constantes canônicas (SPEC §22)
-- [ ] `src/core/math.ts`: `clamp`, `lerp`, `dist2`, `angleTo`, `approach`, `randRange` — **sem alocação**
-- [ ] `src/core/rng.ts`: mulberry32 semeado + `int`, `float`, `pick`, `weighted` — **+ teste de reprodutibilidade**
-- [ ] `src/core/format.ts`: `fmt()` com sufixos K…Dc e depois aa/ab — **+ teste em todas as faixas**
-- [ ] `src/core/events.ts`: event bus tipado, listeners pré-alocados, sem alocação no `emit`
-- [ ] `src/core/loop.ts`: timestep fixo com acumulador, `MAX_FRAME`, `MAX_CATCHUP`, alpha de interpolação, `timeScale`
-- [ ] `src/render/viewport.ts`: cálculo de escala/letterbox, `dpr` limitado a 2, recalculado em `resize`/`orientationchange`
-- [ ] `src/platform/input.ts`: Pointer Events → fila consumida no tick; suporte a tap, hold e multi-touch; conversão tela→mundo
-- [ ] `src/platform/lifecycle.ts`: `visibilitychange`, blur/focus → pausa + timestamp
-- [ ] `src/debug/overlay.ts`: FPS, ms sim, ms render, contagens; toggle por `F3` e por 4 toques
-- [ ] `src/main.ts`: bootstrap, canvas `{alpha:false}`, loop rodando, fundo com grid procedural
-- [ ] **Verificação:** abrir no celular via `--host`; girar; entrar/sair do app; nada quebra
-- [ ] **Verificação:** 60 FPS estável com canvas vazio + overlay
+- [x] `npm create vite` com template `vanilla-ts`; limpar boilerplate
+- [x] `tsconfig.json` com todas as flags de CLAUDE.md §4.1
+- [x] ESLint + Prettier; script `lint` com `--max-warnings 0`
+- [x] Vitest configurado (ambiente `node` para `core`/`data`, `jsdom` para `ui`)
+- [x] `index.html`: viewport com `viewport-fit=cover`, `touch-action:none`, `overscroll-behavior:none`, tema escuro
+- [x] `src/core/constants.ts` com as constantes canônicas (SPEC §22)
+- [x] `src/core/math.ts`: `clamp`, `lerp`, `dist2`, `angleTo`, `approach`, `randRange` — **sem alocação**
+- [x] `src/core/rng.ts`: mulberry32 semeado + `int`, `float`, `pick`, `weighted` — **+ teste de reprodutibilidade**
+- [x] `src/core/format.ts`: `fmt()` com sufixos K…Dc e depois aa/ab — **+ teste em todas as faixas**
+- [x] `src/core/events.ts`: event bus tipado, listeners pré-alocados, sem alocação no `emit`
+- [x] `src/core/loop.ts`: timestep fixo com acumulador, `MAX_FRAME`, `MAX_CATCHUP`, alpha de interpolação, `timeScale`
+- [x] `src/render/viewport.ts`: cálculo de escala/letterbox, `dpr` limitado a 2, recalculado em `resize`/`orientationchange`
+- [x] `src/platform/input.ts`: Pointer Events → fila consumida no tick; suporte a tap, hold e multi-touch; conversão tela→mundo
+- [x] `src/platform/lifecycle.ts`: `visibilitychange`, blur/focus → pausa + timestamp
+- [x] `src/debug/overlay.ts`: FPS, ms sim, ms render, contagens; toggle por `F3` e por 4 toques
+- [x] `src/main.ts`: bootstrap, canvas `{alpha:false}`, loop rodando, fundo com grid procedural
+- [~] **Verificação:** abrir no celular via `--host`; girar; entrar/sair do app; nada quebra
+      _(validado headless em viewport mobile 412×915 @2x; falta aparelho real)_
+- [x] **Verificação:** 60 FPS estável com canvas vazio + overlay
 
 **Critério de aceite:** tela com grid, torre marcada por um círculo, contador de FPS, toque imprime coordenadas de mundo corretas em qualquer resolução.
 
 **Notas:**
 ```
-(preencher: decisões, surpresas, links)
+- Stack instalada: Vite 6, TS 5.9, Vitest 2, ESLint 9 flat config + typescript-eslint
+  type-checked. Zero dependências de runtime — package.json só tem devDependencies.
+- Playwright entrou como devDependency para o smoke test headless (tools/smoke.mjs):
+  sobe o dist, mede FPS, captura erro de console e tira screenshot. É a forma de
+  cumprir "roda no navegador sem erro no console" da DoD sem aparelho na mão.
+  Aponta para o Chromium pré-instalado do ambiente via CHROMIUM_PATH.
+- fmt(): a primeira versão dividia por 1000 num laço e 1e33 saía como "1000No".
+  Trocado por log10 + carry quando a mantissa arredonda para 1000. Sufixos pós-Dc
+  são aa..zz e depois aaa..zzz (tier 12 = 'aa' = 1e36).
+- EventBus é numérico (3 números por evento) de propósito: emit() roda dentro do
+  tick e não pode alocar. Payload rico vive no GameState; o evento só avisa.
+- off() durante dispatch é adiado — splice no meio da iteração pularia listeners.
+- GameLoop não conhece DOM: recebe o timestamp. É o que o deixa testável (7 testes
+  cobrindo catch-up, espiral da morte, timeScale e alpha).
+- Input é fila SoA circular de 64 eventos: um burst de multi-touch não aloca.
+  Overflow descarta o mais antigo (posição velha de ponteiro não vale nada).
+- Favicon embutido como data-URI: evita o 404 de /favicon.ico no console.
+- FPS medido: 60,2 (sem throttle, canvas com grid + overlay). Console limpo.
 ```
 
 ---
