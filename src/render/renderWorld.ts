@@ -25,11 +25,12 @@ export type SpriteLayer = {
   readonly keys: readonly SpriteKey[];
 };
 
-/** Enemies additionally expose health, so the renderer can draw hit bars. */
+/** Enemies additionally expose health and flags, for hit bars and elite trim. */
 export type EnemyLayer = SpriteLayer & {
   readonly hp: Float32Array;
   readonly hpMax: Float32Array;
   readonly radius: Float32Array;
+  readonly flags: Uint16Array;
 };
 
 /** Floating numbers are blitted from the digit atlas, not from a sprite key. */
@@ -43,6 +44,20 @@ export type NumberLayer = {
   readonly lifeMax: Float32Array;
   readonly scale: Float32Array;
   readonly row: Uint8Array;
+  readonly alive: Uint8Array;
+  count: number;
+};
+
+/** Boss telegraphs and ground zones, drawn under everything else. */
+export type HazardLayer = {
+  readonly x: Float32Array;
+  readonly y: Float32Array;
+  readonly radius: Float32Array;
+  readonly life: Float32Array;
+  readonly lifeMax: Float32Array;
+  readonly telegraphT: Float32Array;
+  readonly telegraphMax: Float32Array;
+  readonly kind: Uint8Array;
   readonly alive: Uint8Array;
   count: number;
 };
@@ -62,6 +77,7 @@ export type TowerView = {
 export type RenderWorld = {
   enemies: EnemyLayer;
   damageNumbers: NumberLayer;
+  hazards: HazardLayer;
   projectiles: SpriteLayer;
   pickups: SpriteLayer;
   particles: SpriteLayer;

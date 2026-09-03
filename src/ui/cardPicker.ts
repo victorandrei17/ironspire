@@ -4,6 +4,7 @@ import type { CardOffer } from '../systems/cards.ts';
 import { CARDS, RARITY_NAME } from '../data/cards.ts';
 import { OFFER_SIZE } from '../systems/cards.ts';
 import { haptic, HAPTIC } from '../platform/haptics.ts';
+import { t } from '../data/strings.ts';
 
 const RARITY_CLASS = ['r-common', 'r-rare', 'r-epic', 'r-legend'] as const;
 
@@ -33,7 +34,7 @@ export class CardPicker {
     this.root.hidden = true;
 
     this.title = el('div', 'modal-title', this.root);
-    this.title.textContent = 'NÍVEL!';
+    this.title.textContent = t('cards.title');
 
     const list = el('div', 'card-list', this.root);
     for (let i = 0; i < OFFER_SIZE; i++) {
@@ -80,14 +81,19 @@ export class CardPicker {
       setText(this.names[i]!, def.name);
       setText(this.descs[i]!, def.desc(nextLevel));
       setText(this.rarities[i]!, RARITY_NAME[def.rarity] ?? '');
-      setText(this.levels[i]!, nextLevel > 1 ? `Nv.${nextLevel}/${def.maxLevel}` : 'NOVA');
+      setText(this.levels[i]!, nextLevel > 1 ? `${t('hud.level')}${nextLevel}/${def.maxLevel}` : t('cards.new'));
       for (const cls of RARITY_CLASS) setClass(b, cls, false);
       setClass(b, RARITY_CLASS[def.rarity] ?? 'r-common', true);
     }
 
-    setText(this.rerollBtn, `RESORTEAR (${run.rerollsLeft})`);
+    setText(this.rerollBtn, `${t('cards.reroll')} (${run.rerollsLeft})`);
     setClass(this.rerollBtn, 'dim', run.rerollsLeft <= 0);
-    setText(this.title, run.pendingCards > 1 ? `NÍVEL ${run.level}  ·  ${run.pendingCards} cartas` : `NÍVEL ${run.level}`);
+    setText(
+      this.title,
+      run.pendingCards > 1
+        ? `${t('cards.title')} ${run.level}  ·  ${run.pendingCards}`
+        : `${t('cards.title')} ${run.level}`,
+    );
   }
 
   setVisible(v: boolean): void {

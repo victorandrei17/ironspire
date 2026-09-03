@@ -5,6 +5,7 @@ import { UPGRADES } from '../data/upgrades.ts';
 import { costOf, isMaxed, buyUpgrade, buyMax, maxAffordable } from '../systems/upgrades.ts';
 import { fmt } from '../core/format.ts';
 import { haptic, HAPTIC } from '../platform/haptics.ts';
+import { t } from '../data/strings.ts';
 
 /** Hold this long before auto-repeat kicks in (SPEC §7.2). */
 const HOLD_DELAY = 0.4;
@@ -133,7 +134,7 @@ export class UpgradePanel {
       setText(levelEl, level > 0 ? `Lv.${level}` : '');
 
       if (isMaxed(this.run, i)) {
-        setText(costEl, 'MÁX');
+        setText(costEl, t('talents.max'));
         setClass(b, 'dim', true);
         continue;
       }
@@ -152,7 +153,7 @@ export class UpgradePanel {
   /** Shows or hides the early-call button and its bonus label. */
   setNextWave(available: boolean, bonusPct: number): void {
     show(this.nextWaveBtn, available);
-    if (available) setText(this.nextWaveBtn, `PRÓXIMA ONDA  +${Math.round(bonusPct * 100)}% 🪙`);
+    if (available) setText(this.nextWaveBtn, `${t('hud.nextWave')}  +${Math.round(bonusPct * 100)}% 🪙`);
   }
 
   setVisible(v: boolean): void {

@@ -20,6 +20,10 @@ import { StatusSystem } from './systems/status.ts';
 import { resolveDamage } from './systems/damage.ts';
 import { updateRewards } from './systems/rewards.ts';
 import { CameraSystem } from './systems/camera.ts';
+import { BossSystem } from './systems/boss.ts';
+import { AbilitySystem } from './systems/abilities.ts';
+import { BOSSES } from './data/bosses.ts';
+import { ABILITY_COUNT } from './data/abilities.ts';
 import { Spawner } from './systems/spawner.ts';
 import { WaveSystem } from './systems/waves.ts';
 import { CardOffer, pickCard, applyCards } from './systems/cards.ts';
@@ -65,7 +69,9 @@ import { Hud } from './ui/hud.ts';
 import { TalentTree } from './ui/talentTree.ts';
 import { OfflineScreen } from './ui/offlineScreen.ts';
 import { OptionsScreen, applyUiScale } from './ui/options.ts';
+import { AbilityBar } from './ui/abilityBar.ts';
 import { setHapticsEnabled } from './platform/haptics.ts';
+import { setLanguage } from './data/strings.ts';
 import { UpgradePanel } from './ui/upgradePanel.ts';
 import { CardPicker } from './ui/cardPicker.ts';
 import { MainMenu, PauseScreen, ResultScreen, TopBar, type RunResult } from './ui/menus.ts';
@@ -89,6 +95,8 @@ export class Game {
   private readonly enemyCombat = new EnemyCombatSystem();
   private readonly status = new StatusSystem();
   private readonly camera: CameraSystem;
+  private readonly boss = new BossSystem();
+  private readonly abilities = new AbilitySystem();
   private readonly spawner = new Spawner();
   private readonly waves = new WaveSystem();
   private readonly offer = new CardOffer();
@@ -112,6 +120,7 @@ export class Game {
   private readonly talentTree: TalentTree;
   private readonly offlineScreen: OfflineScreen;
   private readonly options: OptionsScreen;
+  private readonly abilityBar: AbilityBar;
   /** Set while the options screen is open, so it can return to where it came from. */
   private optionsReturn: Scene = SCENE.Menu;
 
@@ -179,6 +188,7 @@ export class Game {
       () => this.setScene(SCENE.Menu),
     );
     this.topBar = new TopBar(uiRoot, () => this.setScene(SCENE.Pause));
+    this.abilityBar = new AbilityBar(uiRoot, (id) => this.abilities.cast(this.world, id));
 
     this.loop = new GameLoop(
       (dt) => this.simulate(dt),
@@ -186,6 +196,10 @@ export class Game {
     );
 
     bus.on(EV.WaveStart, (wave, pattern) => this.hud.banner(pattern, wave));
+    bus.on(EV.BossSpawned, (idx) => {
+      this.boss.register(this.spawner.bossHandle, idx);
+      this.hud.setBossName(BOSSES[idx]?.name ?? 'CHEFE');
+    });
     bus.on(EV.TowerDied, () => this.endRun(true));
     // A finished wave is the natural autosave point: cheap, and it bounds how
     // much progress a kill -9 can cost (SPEC §15.3).
@@ -243,6 +257,7 @@ export class Game {
     this.hud.setVisible(inRun || next === SCENE.CardPick);
     this.panel.setVisible(inRun);
     this.topBar.setVisible(inRun);
+    this.abilityBar.setVisible(inRun);
     this.picker.setVisible(next === SCENE.CardPick);
     this.menu.setVisible(next === SCENE.Menu);
     if (next === SCENE.Menu) {
@@ -272,11 +287,19 @@ export class Game {
     applyUpgrades(this.run, this.world.tower.stats);
     applyCards(this.run, this.world.tower.stats);
     this.world.tower.hp = this.world.tower.hpMax;
+    // Abilities unlock through the Arcane branch; until then the bar is empty.
+    const mask = mods.abilityUnlocks;
+    for (let i = 0; i < ABILITY_COUNT; i++) {
+      this.abilities.unlocked[i] = (mask & (1 << i)) !== 0 ? 1 : 0;
+    }
+    this.abilities.autoCast = mods.autoCast;
     this.saves.clearRunSnapshot();
     this.spawner.reset();
     this.waves.reset();
     this.status.reset();
     this.camera.reset();
+    this.boss.reset();
+    this.abilities.reset(this.world);
     this.levelUpFx.reset();
     this.offer.close();
     this.setScene(SCENE.Run);
@@ -332,6 +355,7 @@ export class Game {
     // feedback survives for players who only need it toned down (SPEC §11.4).
     this.camera.intensity = prefs.reduceShake ? 0.25 : 1;
     applyUiScale(prefs.uiScale);
+    setLanguage(prefs.lang);
     this.view.flashScale = prefs.reduceFlash ? 0.3 : 1;
     document.body.classList.toggle('lefty', prefs.lefty);
     this.saves.touch();
@@ -460,12 +484,12 @@ export class Game {
   private rerollOffer(): void {
     if (this.run.rerollsLeft <= 0) return;
     this.run.rerollsLeft--;
-    this.offer.roll(this.run, this.rng);
+    this.offer.roll(this.run, this.rng, this.world.tower.mods.cardLuckPct);
     this.picker.render(this.offer, this.run);
   }
 
   private openCardPick(): void {
-    this.offer.roll(this.run, this.rng);
+    this.offer.roll(this.run, this.rng, this.world.tower.mods.cardLuckPct);
     this.picker.render(this.offer, this.run);
     this.setScene(SCENE.CardPick);
   }
@@ -488,7 +512,14 @@ export class Game {
     this.levelUpFx.update(dt);
 
     this.waves.update(this.world, this.run, this.spawner, dt);
-    this.ai.update(this.world.enemies, this.world.hash, this.world.tower.x, this.world.tower.y, dt);
+    this.ai.update(
+      this.world.enemies,
+      this.world.hash,
+      this.world.tower.x,
+      this.world.tower.y,
+      dt,
+      this.boss.isDashing(this.spawner.bossHandle) ? this.spawner.bossHandle : -1,
+    );
 
     integrateEnemies(this.world.enemies, dt);
     integrateProjectiles(this.world.projectiles, dt);
@@ -502,10 +533,15 @@ export class Game {
 
     this.world.rebuildHash();
 
+    // Orbitals move before collision so their swept segment is this tick's.
+    this.status.updateOrbitals(this.world, dt);
+
     this.targeting.update(this.world.tower, this.world.enemies, this.world.hash, this.run.policy, dt);
     updateWeapons(this.world, dt);
     this.projectiles.update(this.world);
     this.enemyCombat.update(this.world, dt);
+    this.abilities.update(this.world, dt);
+    this.boss.update(this.world, this.rng, dt);
     this.status.update(this.world, dt, AURA_HZ);
 
     const goldBefore = this.run.gold;
@@ -527,6 +563,7 @@ export class Game {
     // UI last: it reads the settled state of this tick.
     this.panel.update(dt);
     this.panel.setNextWave(this.waves.canCallEarly, BAL.wave.earlyCallGoldBonus);
+    this.abilityBar.update(this.abilities);
     this.hud.update(this.run, this.world, dt);
 
     // A banked level opens the card screen, which freezes the simulation.
@@ -585,5 +622,24 @@ export class Game {
 
   debugOpenTalents(): void {
     this.setScene(SCENE.Talents);
+  }
+
+  /**
+   * Jumps a fresh run to `wave` with stats scaled to match, so a boss wave can
+   * be reached without playing to it. Test hook only.
+   */
+  debugJumpToWave(wave: number): void {
+    this.startRun();
+    this.run.wave = wave - 1;
+    this.run.waveMax = wave - 1;
+    // Give the tower roughly the power a player would have at that wave, or
+    // the boss simply deletes it before anything is visible.
+    for (let i = 0; i < this.run.upgradeLevels.length; i++) {
+      this.run.upgradeLevels[i] = Math.round(wave * 1.5);
+    }
+    applyUpgrades(this.run, this.world.tower.stats);
+    this.world.tower.hp = this.world.tower.hpMax;
+    this.waves.reset();
+    this.waves.callEarly(this.world, this.run, this.spawner);
   }
 }

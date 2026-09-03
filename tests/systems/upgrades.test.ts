@@ -142,12 +142,14 @@ describe('applying upgrades to stats', () => {
     expect(stats.get(ST.Dmg)).toBeCloseTo(once, 6);
   });
 
-  it('damage levels add as a percentage of base', () => {
+  it('damage levels COMPOUND, so they can track exponential enemy HP', () => {
     const run = makeRun(0);
     const stats = new TowerStats();
-    run.upgradeLevels[0] = 10; // +12% each
+    const def = UPGRADES[0];
+    expect(def.kind).toBe('mult');
+    run.upgradeLevels[0] = 10;
     applyUpgrades(run, stats);
-    expect(stats.get(ST.Dmg)).toBeCloseTo(BAL.tower.dmg * (1 + 0.12 * 10), 4);
+    expect(stats.get(ST.Dmg)).toBeCloseTo(BAL.tower.dmg * Math.pow(def.perLevel, 10), 3);
   });
 
   it('range levels add flat units', () => {
@@ -158,11 +160,18 @@ describe('applying upgrades to stats', () => {
     expect(stats.get(ST.Range)).toBeCloseTo(BAL.tower.range + 32, 4);
   });
 
-  it('no upgrade level ever produces a NaN stat', () => {
+  it('an absurd level count clamps instead of overflowing to Infinity', () => {
+    // A compounding upgrade at ten thousand levels overflows float; a
+    // non-finite stat would poison positions and damage everywhere downstream.
     const run = makeRun(0);
     const stats = new TowerStats();
     for (let i = 0; i < UPGRADE_COUNT; i++) run.upgradeLevels[i] = 10_000;
     applyUpgrades(run, stats);
-    for (let s = 0; s < 12; s++) expect(Number.isFinite(stats.get(s))).toBe(true);
+    for (let s = 0; s < 12; s++) {
+      const v = stats.get(s);
+      expect(Number.isFinite(v)).toBe(true);
+      // Pierce has no upgrade behind it and legitimately stays at zero.
+      expect(v).toBeGreaterThanOrEqual(0);
+    }
   });
 });

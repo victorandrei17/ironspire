@@ -1,4 +1,5 @@
 import type { TowerStats } from '../entities/tower.ts';
+import { ST } from '../data/stats.ts';
 import type { Save } from '../save/schema.ts';
 import { type MetaModifiers, resetModifiers } from '../core/metaModifiers.ts';
 
@@ -21,9 +22,13 @@ import { BAL } from '../data/balance.ts';
  * Idempotent, for the same reason `applyUpgrades` is: a respec, a load and a
  * rebirth all funnel through this one function.
  */
+/** Stats ether scales. Capped stats are excluded — the bonus would be wasted. */
+const ETHER_STATS = [ST.Dmg, ST.FireRate, ST.HpMax, ST.GoldMult] as const;
+
 export function applyTalents(save: Save, stats: TowerStats, out: MetaModifiers): void {
   stats.flatMeta.fill(0);
   stats.pctMeta.fill(0);
+  stats.prodMeta.fill(1);
   resetModifiers(out);
 
   for (const def of TALENTS) {
@@ -32,12 +37,13 @@ export function applyTalents(save: Save, stats: TowerStats, out: MetaModifiers):
     applyOne(def, rank, stats, out);
   }
 
-  // Ether from rebirths is a flat global multiplier on top of everything
-  // (SPEC §10.3).
-  const etherBonus = etherMultiplier(save.meta.ether) - 1;
-  if (etherBonus > 0) {
-    for (let s = 0; s < stats.pctMeta.length; s++) {
-      stats.pctMeta[s] = (stats.pctMeta[s] ?? 0) + etherBonus;
+  // Ether multiplies rather than adds, so each rebirth keeps moving the wall
+  // (SPEC §10.3). Applied to the offensive and survival stats only — an ether
+  // bonus on pickup radius or crit chance would just hit their caps.
+  const etherMul = etherMultiplier(save.meta.ether);
+  if (etherMul > 1) {
+    for (const stat of ETHER_STATS) {
+      stats.prodMeta[stat] = (stats.prodMeta[stat] ?? 1) * etherMul;
     }
   }
   stats.markDirty();
@@ -79,6 +85,12 @@ function applyOne(
       break;
     case 'reviveOnce':
       out.reviveOnce = true;
+      break;
+    case 'abilitySlot':
+      out.abilityUnlocks |= def.perRank;
+      break;
+    case 'autoCast':
+      out.autoCast = true;
       break;
     default:
       break;
@@ -199,9 +211,15 @@ export function etherForRebirth(waveMax: number): number {
   return Math.floor(Math.pow(waveMax - 60, 0.9) / 3);
 }
 
-/** Global multiplier from accumulated ether. */
+/**
+ * Global multiplier from accumulated ether.
+ *
+ * COMPOUNDING, not additive. Prestige is the only unbounded growth in the game;
+ * an additive ether bonus flattens out and the wall stops moving, which is the
+ * exact failure the balance simulator surfaced for the late game.
+ */
 export function etherMultiplier(ether: number): number {
-  return 1 + ether * 0.02;
+  return Math.pow(1.03, ether);
 }
 
 export function canRebirth(save: Save): boolean {

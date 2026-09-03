@@ -42,7 +42,9 @@ export type SpecialId =
   | 'damageReductionPct'
   | 'iframeBonus'
   | 'cardLuckPct'
-  | 'coreGainPct';
+  | 'coreGainPct'
+  | 'abilitySlot'
+  | 'autoCast';
 
 export type TalentDef = {
   readonly id: string;
@@ -318,6 +320,52 @@ export const TALENTS: readonly TalentDef[] = [
     costBase: 22,
     kind: 'special',
     special: 'rerolls',
+    perRank: 1,
+  },
+  {
+    id: 'arcane_nova',
+    branch: BRANCH.Arcane,
+    name: 'Pulso de Choque',
+    desc: () => 'Desbloqueia a habilidade Pulso de Choque',
+    maxRank: 1,
+    costBase: 30,
+    kind: 'special',
+    special: 'abilitySlot',
+    perRank: 1, // bit 0
+  },
+  {
+    id: 'arcane_fury',
+    branch: BRANCH.Arcane,
+    name: 'Fúria',
+    desc: () => 'Desbloqueia a habilidade Fúria',
+    maxRank: 1,
+    costBase: 70,
+    kind: 'special',
+    special: 'abilitySlot',
+    perRank: 2, // bit 1
+  },
+  {
+    id: 'arcane_bulwark',
+    branch: BRANCH.Arcane,
+    name: 'Baluarte',
+    desc: () => 'Desbloqueia a habilidade Baluarte',
+    maxRank: 1,
+    costBase: 120,
+    kind: 'special',
+    special: 'abilitySlot',
+    perRank: 4, // bit 2
+  },
+  {
+    id: 'arcane_automation',
+    branch: BRANCH.Arcane,
+    // The promise of the genre: the game has to keep playing with the screen
+    // off (SPEC §9).
+    name: 'Automação',
+    desc: () => 'Habilidades disparam sozinhas quando a condição é atendida',
+    maxRank: 1,
+    costBase: 200,
+    kind: 'special',
+    special: 'autoCast',
     perRank: 1,
   },
   {

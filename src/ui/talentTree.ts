@@ -11,6 +11,7 @@ import {
 } from '../systems/meta.ts';
 import { fmt } from '../core/format.ts';
 import { haptic, HAPTIC } from '../platform/haptics.ts';
+import { t } from '../data/strings.ts';
 
 /**
  * The talent screen (SPEC §10.1).
@@ -50,7 +51,7 @@ export class TalentTree {
 
     const header = el('div', 'talent-header', this.root);
     const title = el('div', 'modal-title', header);
-    title.textContent = 'TALENTOS';
+    title.textContent = t('talents.title');
     this.coreLabel = el('span', 'core-count', header);
 
     const tabRow = el('div', 'talent-tabs', this.root);
@@ -104,14 +105,14 @@ export class TalentTree {
     });
 
     const footer = el('div', 'talent-footer', this.root);
-    const respecBtn = button('RESPEC GRÁTIS', 'interactive', footer);
+    const respecBtn = button(t('talents.respec'), 'interactive', footer);
     respecBtn.addEventListener('click', () => {
       haptic(HAPTIC.Medium);
       respec(this.getSave());
       this.onChanged();
       this.refresh();
     });
-    const close = button('VOLTAR', 'primary interactive', footer);
+    const close = button(t('talents.back'), 'primary interactive', footer);
     close.addEventListener('click', () => {
       haptic(HAPTIC.Light);
       onClose();
@@ -132,8 +133,8 @@ export class TalentTree {
       setText(
         this.rebirthBtn,
         this.confirmingRebirth
-          ? `CONFIRMAR: zera Núcleos e talentos por ✵ ${fmt(gain)}`
-          : `RENASCER  ·  ✵ ${fmt(gain)}`,
+          ? `${t('talents.rebirthConfirm')} · ✵ ${fmt(gain)}`
+          : `${t('talents.rebirth')}  ·  ✵ ${fmt(gain)}`,
       );
       setClass(this.rebirthBtn, 'confirming', this.confirmingRebirth);
     }
@@ -149,7 +150,7 @@ export class TalentTree {
       setText(row.name, row.def.name);
       setText(row.desc, rank > 0 ? row.def.desc(rank) : row.def.desc(1));
       setText(row.rank, `${rank}/${row.def.maxRank}`);
-      setText(row.cost, Number.isFinite(cost) ? `◈ ${fmt(cost)}` : 'MÁX');
+      setText(row.cost, Number.isFinite(cost) ? `◈ ${fmt(cost)}` : t('talents.max'));
       setClass(row.node, 'dim', !Number.isFinite(cost) || save.meta.nucleos < cost);
       setClass(row.node, 'owned', rank > 0);
     }

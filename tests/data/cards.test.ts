@@ -7,6 +7,35 @@ import { UPGRADE_COUNT } from '../../src/data/upgrades.ts';
 import { CardOffer, pickCard, applyCards, OFFER_SIZE } from '../../src/systems/cards.ts';
 import { Rng } from '../../src/core/rng.ts';
 
+/**
+ * One comparable scalar for "how strong is this card at this level".
+ *
+ * Fields where LOWER is better (a slow multiplier, a cooldown) are inverted,
+ * so the comparison means the same thing for every card.
+ */
+function strength(t: ReturnType<typeof makeCardTarget>): number {
+  let m = 0;
+  for (let s = 0; s < STAT_COUNT; s++) {
+    m += Math.abs(t.flatCard[s] ?? 0);
+    m += Math.abs(t.pctCard[s] ?? 0);
+    m += Math.abs((t.prodMult[s] ?? 1) - 1);
+  }
+  m += t.thornsPct;
+  m += t.lifestealPct + t.lifestealCap * 0.01;
+  m += t.chainJumps + t.chainRadius * 0.001;
+  m += t.orbitalCount + t.orbitalRadius * 0.001;
+  m += t.explosiveRadius * 0.01 + t.explosivePct;
+  m += t.frostNovaRadius * 0.001 + t.frostNovaFreeze;
+  m += t.overchargeDrainPct * 10;
+  m += t.deathmarkThreshold * 10 + t.deathmarkBossMult;
+  m += t.slowAuraRadius * 0.001;
+  // Lower is better on these two.
+  m += 1 - t.slowAuraMul;
+  if (t.frostNovaCd > 0) m += 20 / t.frostNovaCd;
+  if (t.deathmarkEvery > 0) m += 20 / t.deathmarkEvery;
+  return m;
+}
+
 function snapshot(t: ReturnType<typeof makeCardTarget>): string {
   return JSON.stringify({
     flat: Array.from(t.flatCard),
@@ -102,20 +131,17 @@ describe('card catalogue (SPEC §8)', () => {
     }
   });
 
-  it('effects are monotonic in level', () => {
+  it('every card is strictly stronger at each level (no dead levels)', () => {
     for (const c of CARDS) {
+      if (c.maxLevel < 2) continue; // single-level cards cannot regress
       let previous = -Infinity;
       for (let l = 1; l <= c.maxLevel; l++) {
         const t = makeCardTarget();
         c.apply(t, l);
-        // Magnitude of the whole effect, as a single comparable scalar.
-        let magnitude = 0;
-        for (let s = 0; s < STAT_COUNT; s++) {
-          magnitude += Math.abs(t.flatCard[s] ?? 0) + Math.abs(t.pctCard[s] ?? 0);
-        }
-        magnitude +=
-          t.thornsPct + t.lifestealPct + t.chainJumps + (1 - t.slowAuraMul);
-        expect(magnitude).toBeGreaterThan(previous);
+        const magnitude = strength(t);
+        // A level that does not increase the effect is a level the player
+        // spends a card pick on for nothing.
+        expect(magnitude, `${c.id} level ${l}`).toBeGreaterThan(previous);
         previous = magnitude;
       }
     }

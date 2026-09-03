@@ -1,6 +1,7 @@
 import { Pool } from '../core/pool.ts';
 import { ENEMY_CAP } from '../core/constants.ts';
 import { ES, EF } from '../data/enemyFlags.ts';
+import type { EnemyDef } from '../data/enemies.ts';
 
 // Re-exported so pool consumers do not need to know where the constants live.
 export { ES, EF };
@@ -26,6 +27,15 @@ export class EnemyPool extends Pool {
   readonly hpMax = new Float32Array(this.cap);
   readonly radius = new Float32Array(this.cap);
   readonly speed = new Float32Array(this.cap);
+  /**
+   * Combat stats are per-entity, not looked up from the archetype table.
+   * A boss draws its numbers from a different table entirely, and reading them
+   * from the pool also keeps a table indirection out of the hot loop.
+   */
+  readonly dmg = new Float32Array(this.cap);
+  readonly attackInterval = new Float32Array(this.cap);
+  /** Ranged types hold at this distance; 0 means melee. */
+  readonly preferredRange = new Float32Array(this.cap);
   readonly rot = new Float32Array(this.cap);
   readonly scale = new Float32Array(this.cap);
   readonly alpha = new Float32Array(this.cap);
@@ -75,6 +85,9 @@ export class EnemyPool extends Pool {
     this.hpMax[i] = hp;
     this.radius[i] = radius;
     this.speed[i] = 0;
+    this.dmg[i] = 0;
+    this.attackInterval[i] = 1;
+    this.preferredRange[i] = 0;
     this.rot[i] = 0;
     this.scale[i] = 1;
     this.alpha[i] = 1;
@@ -93,6 +106,22 @@ export class EnemyPool extends Pool {
     this.goldValue[i] = 0;
     this.xpValue[i] = 0;
     return i;
+  }
+
+  /**
+   * Copies an archetype's combat stats into slot `i`.
+   *
+   * One place, so a new spawn path (a test, the stress filler, a summon) cannot
+   * forget a field and quietly give an enemy a grunt's damage.
+   */
+  applyArchetype(i: number, def: EnemyDef, speedMul = 1): void {
+    this.speed[i] = def.speed * speedMul;
+    this.dmg[i] = def.dmg;
+    this.attackInterval[i] = def.attackInterval;
+    this.preferredRange[i] = def.preferredRange;
+    this.flags[i] = def.flags;
+    this.scale[i] = def.scale;
+    this.radius[i] = def.radius;
   }
 
   hasFlag(i: number, flag: number): boolean {

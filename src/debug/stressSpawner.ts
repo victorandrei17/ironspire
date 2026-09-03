@@ -27,9 +27,7 @@ export function stressFill(world: World, target: number, rng: Rng, wave = 10): v
       def.radius,
     );
     if (i < 0) break;
-    world.enemies.speed[i] = def.speed * speedMul;
-    world.enemies.flags[i] = def.flags;
-    world.enemies.scale[i] = def.scale;
+    world.enemies.applyArchetype(i, def, speedMul);
     world.enemies.goldValue[i] =
       BAL.wave.goldBase * Math.pow(BAL.wave.goldGrowth, wave - 1) * def.goldMul;
     world.enemies.xpValue[i] =

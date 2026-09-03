@@ -5,8 +5,15 @@ import { POLICY_COUNT } from '../core/state.ts';
 import { fmt } from '../core/format.ts';
 import { PATTERN_INFO } from '../data/waves.ts';
 import { haptic, HAPTIC } from '../platform/haptics.ts';
+import { t } from '../data/strings.ts';
 
-const POLICY_LABEL = ['PERTO', 'FORTE', 'FRACO', 'RÁPIDO', 'CHEFE'] as const;
+const POLICY_KEYS = [
+  'policy.closest',
+  'policy.strongest',
+  'policy.weakest',
+  'policy.fastest',
+  'policy.bossFirst',
+] as const;
 
 /**
  * The in-run HUD (SPEC §11.1).
@@ -31,6 +38,7 @@ export class Hud {
   private readonly bossName: HTMLSpanElement;
 
   private bannerT = 0;
+  private bossLabel = 'CHEFE';
 
   constructor(parent: HTMLElement, onCyclePolicy: () => void) {
     this.root = el('div', 'hud', parent);
@@ -69,10 +77,15 @@ export class Hud {
     });
   }
 
+  /** Named by the boss system when one spawns, so the HUD stays data-free. */
+  setBossName(name: string): void {
+    this.bossLabel = name;
+  }
+
   /** Announces the wave pattern for a beat before the wave lands (SPEC §6.4). */
   banner(patternIdx: number, wave: number): void {
     const info = PATTERN_INFO[patternIdx] ?? PATTERN_INFO[0];
-    setText(this.bannerEl, `${info.icon}  ONDA ${wave} · ${info.name}`);
+    setText(this.bannerEl, `${info.icon}  ${t('hud.wave')} ${wave} · ${info.name}`);
     show(this.bannerEl, true);
     this.bannerT = 1.4;
   }
@@ -92,11 +105,11 @@ export class Hud {
 
     const xpPct = Math.max(0, Math.min(1, run.xp / Math.max(1, run.xpToNext)));
     setVar(this.xpFill, '--p', (xpPct * 100).toFixed(1) + '%');
-    setText(this.levelText, `Nv. ${run.level}`);
+    setText(this.levelText, `${t('hud.level')} ${run.level}`);
 
-    setText(this.waveText, `ONDA ${Math.max(1, run.wave)}`);
+    setText(this.waveText, `${t('hud.wave')} ${Math.max(1, run.wave)}`);
     setText(this.goldText, `🪙 ${fmt(run.gold)}`);
-    setText(this.policyBtn, POLICY_LABEL[run.policy % POLICY_COUNT] ?? 'PERTO');
+    setText(this.policyBtn, t(POLICY_KEYS[run.policy % POLICY_COUNT] ?? 'policy.closest'));
 
     this.updateBossBar(world);
   }
@@ -119,7 +132,7 @@ export class Hud {
     show(this.bossWrap, true);
     const pct = Math.max(0, Math.min(1, (e.hp[bossIdx] ?? 0) / Math.max(1, e.hpMax[bossIdx] ?? 1)));
     setVar(this.bossFill, '--p', (pct * 100).toFixed(1) + '%');
-    setText(this.bossName, 'COLOSSO');
+    setText(this.bossName, this.bossLabel);
   }
 
   setVisible(v: boolean): void {

@@ -69,6 +69,10 @@ export type CardDef = {
   /** Pure. Called with the cumulative level, never incrementally. */
   readonly apply: (s: CardTarget, lvl: number) => void;
   readonly requires?: readonly string[];
+  /** Offered as a fusion once this card and `partner` are both maxed. */
+  readonly evolvesWith?: { readonly partner: string; readonly into: string };
+  /** Marks a fusion result: only offered when both parents are maxed. */
+  readonly evolutionOf?: readonly [string, string];
 };
 
 /** Creates a blank target — used by tests and by the stat recompute. */
@@ -264,11 +268,163 @@ const RARES: readonly CardDef[] = [
   },
 ];
 
+// --- Epics (levels 1-3) ------------------------------------------------------
+
+const EPICS: readonly CardDef[] = [
+  {
+    id: 'chain',
+    name: 'Corrente Arcana',
+    desc: (l) => `Projétil salta para +${1 + l} alvos a 140 u (${60}% do dano por salto)`,
+    rarity: RARITY.Epic,
+    maxLevel: 3,
+    icon: 'ui/card_offense',
+    tags: ['offense'],
+    apply: (s, l) => {
+      s.flags |= TF.Chain;
+      s.chainJumps = 1 + l;
+      s.chainRadius = 140;
+      s.chainFalloff = 0.6;
+    },
+    evolvesWith: { partner: 'multishot', into: 'arrow_storm' },
+  },
+  {
+    id: 'orbital',
+    name: 'Sentinelas',
+    desc: (l) => `${1 + l} orbes giram a 90 u causando dano por contato`,
+    rarity: RARITY.Epic,
+    maxLevel: 3,
+    icon: 'ui/card_utility',
+    tags: ['offense', 'defense'],
+    apply: (s, l) => {
+      s.flags |= TF.Orbital;
+      s.orbitalCount = 1 + l;
+      s.orbitalRadius = 90;
+    },
+  },
+  {
+    id: 'explosive',
+    name: 'Carga Oca',
+    desc: (l) => `Projétil explode em raio ${40 + 20 * l} (${50}% do dano)`,
+    rarity: RARITY.Epic,
+    maxLevel: 3,
+    icon: 'ui/card_offense',
+    tags: ['offense'],
+    apply: (s, l) => {
+      s.flags |= TF.Explosive;
+      s.explosiveRadius = 40 + 20 * l;
+      s.explosivePct = 0.5;
+    },
+  },
+  {
+    id: 'frost_nova',
+    name: 'Nova Gélida',
+    desc: (l) => `A cada ${(10 - l).toFixed(0)} s, congela por 1,2 s tudo a menos de 200 u`,
+    rarity: RARITY.Epic,
+    maxLevel: 3,
+    icon: 'ui/card_defense',
+    tags: ['defense', 'utility'],
+    apply: (s, l) => {
+      s.flags |= TF.FrostNova;
+      // Levels shorten the cooldown rather than lengthening the freeze: a
+      // longer freeze scales toward a permanent stun, a shorter cooldown does not.
+      s.frostNovaCd = 10 - l;
+      s.frostNovaRadius = 200;
+      s.frostNovaFreeze = 1.2;
+    },
+    evolvesWith: { partner: 'slow_aura', into: 'permafrost' },
+  },
+];
+
+// --- Legendaries (levels 1-2) ------------------------------------------------
+
+const LEGENDARIES: readonly CardDef[] = [
+  {
+    id: 'overcharge',
+    name: 'Sobrecarga',
+    desc: (l) => `+${100 * l}% de cadência, mas perde ${l}% da vida máx./s`,
+    rarity: RARITY.Legendary,
+    maxLevel: 2,
+    icon: 'ui/card_offense',
+    tags: ['offense'],
+    apply: (s, l) => {
+      s.flags |= TF.Overcharge;
+      mult(s, ST.FireRate, 1 + l);
+      s.overchargeDrainPct = 0.01 * l;
+    },
+  },
+  {
+    id: 'deathmark',
+    name: 'Marca Mortal',
+    desc: (l) =>
+      `A cada ${13 - l}º tiro: executa não-chefes abaixo de ${15 + 5 * l}% de vida; ${4 * l}× em chefes`,
+    rarity: RARITY.Legendary,
+    maxLevel: 2,
+    icon: 'ui/card_offense',
+    tags: ['offense'],
+    apply: (s, l) => {
+      s.flags |= TF.Deathmark;
+      s.deathmarkEvery = 13 - l;
+      s.deathmarkThreshold = 0.15 + 0.05 * l;
+      s.deathmarkBossMult = 4 * l;
+    },
+  },
+];
+
+// --- Evolutions (SPEC §8.1) --------------------------------------------------
+
 /**
- * The V1 catalogue. Epics and legendaries land in M6; the offer system already
- * reads rarity generically, so adding them is a data change only.
+ * Fusions are offered only when BOTH parents are at max level. They are not in
+ * the normal pool — the "I found a combo" moment is the whole point, and it
+ * would be spent if the card could just show up on its own.
  */
-export const CARDS: readonly CardDef[] = [...COMMONS, ...RARES];
+const EVOLUTIONS: readonly CardDef[] = [
+  {
+    id: 'arrow_storm',
+    name: 'Tempestade de Flechas',
+    desc: () => 'Todo projétil salta e o leque dobra: +2 projéteis, +2 saltos, sem penalidade',
+    rarity: RARITY.Legendary,
+    maxLevel: 1,
+    icon: 'ui/card_offense',
+    tags: ['offense'],
+    apply: (s) => {
+      flat(s, ST.Projectiles, 2);
+      s.flags |= TF.Chain;
+      s.chainJumps += 2;
+      s.chainRadius = Math.max(s.chainRadius, 160);
+      s.chainFalloff = Math.max(s.chainFalloff, 0.8);
+      // Cancels multishot's per-projectile damage cut, which is the reward.
+      mult(s, ST.Dmg, 1 / Math.pow(0.92, 4));
+    },
+    evolutionOf: ['multishot', 'chain'],
+  },
+  {
+    id: 'permafrost',
+    name: 'Permafrost',
+    desc: () => 'A aura congela em vez de lentificar, e a nova dispara a cada 4 s',
+    rarity: RARITY.Legendary,
+    maxLevel: 1,
+    icon: 'ui/card_defense',
+    tags: ['defense', 'utility'],
+    apply: (s) => {
+      s.flags |= TF.FrostNova | TF.SlowAura;
+      s.frostNovaCd = 4;
+      s.frostNovaRadius = Math.max(s.frostNovaRadius, 240);
+      s.frostNovaFreeze = 1.6;
+      s.slowAuraRadius = Math.max(s.slowAuraRadius, 200);
+      s.slowAuraMul = Math.min(s.slowAuraMul, 0.3);
+    },
+    evolutionOf: ['slow_aura', 'frost_nova'],
+  },
+];
+
+/** The full V1 catalogue (SPEC §8.2), plus the fusion cards. */
+export const CARDS: readonly CardDef[] = [
+  ...COMMONS,
+  ...RARES,
+  ...EPICS,
+  ...LEGENDARIES,
+  ...EVOLUTIONS,
+];
 
 export const CARD_COUNT = CARDS.length;
 

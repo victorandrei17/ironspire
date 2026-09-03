@@ -1,7 +1,7 @@
 import type { RunState } from '../core/state.ts';
 import type { TowerStats } from '../entities/tower.ts';
 import type { Rng } from '../core/rng.ts';
-import { CARDS, RARITY_WEIGHTS, type CardDef } from '../data/cards.ts';
+import { CARDS, RARITY_WEIGHTS, cardIndex, type CardDef } from '../data/cards.ts';
 import { bus, EV } from '../core/events.ts';
 
 export const OFFER_SIZE = 3;
@@ -22,11 +22,15 @@ export class CardOffer {
   private readonly eligible = new Int32Array(CARDS.length);
   private readonly weights = new Float32Array(CARDS.length);
 
-  /** Rolls a fresh offer. Safe to call again for a reroll. */
-  roll(run: RunState, rng: Rng): void {
+  /**
+   * Rolls a fresh offer. Safe to call again for a reroll.
+   *
+   * `luck` shifts weight from commons toward rare and above (the Arcane talent).
+   */
+  roll(run: RunState, rng: Rng, luck = 0): void {
     this.slots.fill(-1);
     for (let slot = 0; slot < OFFER_SIZE; slot++) {
-      const n = this.collectEligible(run, slot);
+      const n = this.collectEligible(run, slot, luck);
       if (n === 0) break;
       const pick = rng.weighted(this.weights, n);
       if (pick < 0) break;
@@ -40,7 +44,7 @@ export class CardOffer {
    * Builds the eligible list for one slot: not maxed, not already offered, and
    * with its requirements met. Weight is the card's rarity weight.
    */
-  private collectEligible(run: RunState, slot: number): number {
+  private collectEligible(run: RunState, slot: number, luck: number): number {
     let n = 0;
     for (let i = 0; i < CARDS.length; i++) {
       const def = CARDS[i];
@@ -50,11 +54,27 @@ export class CardOffer {
       for (let s = 0; s < slot; s++) if (this.slots[s] === i) dup = true;
       if (dup) continue;
       if (def.requires !== undefined && !this.requirementsMet(run, def)) continue;
+      // A fusion is offered only once both its parents are maxed; otherwise it
+      // would show up as a random legendary and spend the discovery moment.
+      if (def.evolutionOf !== undefined && !this.parentsMaxed(run, def.evolutionOf)) continue;
       this.eligible[n] = i;
-      this.weights[n] = RARITY_WEIGHTS[def.rarity] ?? 1;
+      // Luck is a flat tilt away from commons; it can never make a common
+      // impossible, which would strand a player whose rares are all maxed.
+      const base = RARITY_WEIGHTS[def.rarity] ?? 1;
+      this.weights[n] = def.rarity === 0 ? Math.max(1, base * (1 - luck * 0.5)) : base * (1 + luck);
       n++;
     }
     return n;
+  }
+
+  private parentsMaxed(run: RunState, parents: readonly [string, string]): boolean {
+    for (const id of parents) {
+      const idx = cardIndex(id);
+      const def = idx >= 0 ? CARDS[idx] : undefined;
+      if (def === undefined) return false;
+      if ((run.cardLevels[idx] ?? 0) < def.maxLevel) return false;
+    }
+    return true;
   }
 
   private requirementsMet(run: RunState, def: CardDef): boolean {

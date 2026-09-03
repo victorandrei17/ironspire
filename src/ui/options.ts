@@ -1,6 +1,7 @@
 import { el, button, setText, setClass, show } from './dom.ts';
 import type { SavePrefs } from '../save/schema.ts';
 import { haptic, HAPTIC } from '../platform/haptics.ts';
+import { t } from '../data/strings.ts';
 
 /**
  * Options (SPEC §11.4, §15.3).
@@ -31,17 +32,17 @@ export class OptionsScreen {
     this.root = el('div', 'modal options', parent);
     this.root.hidden = true;
     const title = el('div', 'modal-title', this.root);
-    title.textContent = 'OPÇÕES';
+    title.textContent = t('options.title');
 
     const list = el('div', 'option-list', this.root);
-    this.addToggle(list, 'haptics', 'Vibração');
-    this.addToggle(list, 'reduceFlash', 'Reduzir flashes');
-    this.addToggle(list, 'reduceShake', 'Reduzir tremor');
-    this.addToggle(list, 'lefty', 'Modo canhoto');
+    this.addToggle(list, 'haptics', t('options.haptics'));
+    this.addToggle(list, 'reduceFlash', t('options.reduceFlash'));
+    this.addToggle(list, 'reduceShake', t('options.reduceShake'));
+    this.addToggle(list, 'lefty', t('options.lefty'));
 
     const scaleRow = el('div', 'option-row', list);
     const scaleLabel = el('span', 'option-label', scaleRow);
-    scaleLabel.textContent = 'Tamanho da interface';
+    scaleLabel.textContent = t('options.uiScale');
     const scaleWrap = el('span', 'scale-wrap', scaleRow);
     // 0 = small, 1 = medium, 2 = large (SPEC §11.4).
     for (const [i, label] of ['P', 'M', 'G'].entries()) {
@@ -58,30 +59,30 @@ export class OptionsScreen {
 
     const saveBox = el('div', 'option-save', this.root);
     const saveTitle = el('div', 'option-label', saveBox);
-    saveTitle.textContent = 'Backup do save';
+    saveTitle.textContent = t('options.backup');
     this.codeBox = el('textarea', 'save-code interactive', saveBox);
     this.codeBox.rows = 3;
     this.codeBox.spellcheck = false;
     this.codeBox.placeholder = 'Cole aqui um código para importar';
 
     const codeRow = el('div', 'option-row', saveBox);
-    const exportBtn = button('EXPORTAR', 'interactive', codeRow);
+    const exportBtn = button(t('options.export'), 'interactive', codeRow);
     exportBtn.addEventListener('click', () => {
       haptic(HAPTIC.Light);
       this.codeBox.value = this.onExport();
       this.codeBox.select();
-      setText(this.statusEl, 'Código gerado — copie e guarde.');
+      setText(this.statusEl, t('options.exported'));
     });
-    const importBtn = button('IMPORTAR', 'interactive', codeRow);
+    const importBtn = button(t('options.import'), 'interactive', codeRow);
     importBtn.addEventListener('click', () => {
       const ok = this.onImport(this.codeBox.value);
       haptic(ok ? HAPTIC.Medium : HAPTIC.Light);
-      setText(this.statusEl, ok ? 'Save importado.' : 'Código inválido.');
+      setText(this.statusEl, ok ? t('options.imported') : t('options.importFailed'));
       if (ok) this.onChanged();
     });
     this.statusEl = el('div', 'option-status', saveBox);
 
-    const close = button('VOLTAR', 'primary interactive', this.root);
+    const close = button(t('talents.back'), 'primary interactive', this.root);
     close.addEventListener('click', () => {
       haptic(HAPTIC.Light);
       onClose();
@@ -109,10 +110,10 @@ export class OptionsScreen {
 
   refresh(): void {
     const prefs = this.getPrefs();
-    for (const t of this.toggles) {
-      const on = prefs[t.key];
-      setText(t.node, on ? 'LIGADO' : 'DESLIGADO');
-      setClass(t.node, 'on', on);
+    for (const toggle of this.toggles) {
+      const on = prefs[toggle.key];
+      setText(toggle.node, on ? t('options.on') : t('options.off'));
+      setClass(toggle.node, 'on', on);
     }
     for (let i = 0; i < this.scaleBtns.length; i++) {
       setClass(this.scaleBtns[i]!, 'on', i === prefs.uiScale);

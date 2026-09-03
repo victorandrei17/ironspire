@@ -17,6 +17,10 @@ export type MetaModifiers = {
   iframeBonus: number;
   cardLuckPct: number;
   coreGainPct: number;
+  /** Bitmask of unlocked ability slots. */
+  abilityUnlocks: number;
+  /** The Automation talent: abilities fire on their own condition (SPEC §9). */
+  autoCast: boolean;
 };
 
 export function makeModifiers(): MetaModifiers {
@@ -32,6 +36,8 @@ export function makeModifiers(): MetaModifiers {
     iframeBonus: 0,
     cardLuckPct: 0,
     coreGainPct: 0,
+    abilityUnlocks: 0,
+    autoCast: false,
   };
 }
 
@@ -47,4 +53,6 @@ export function resetModifiers(out: MetaModifiers): void {
   out.iframeBonus = 0;
   out.cardLuckPct = 0;
   out.coreGainPct = 0;
+  out.abilityUnlocks = 0;
+  out.autoCast = false;
 }

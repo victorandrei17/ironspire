@@ -1,6 +1,6 @@
 import type { World } from '../entities/world.ts';
 import { ES, EF } from '../data/enemyFlags.ts';
-import { ENEMY_LIST, ENEMY_TUNING } from '../data/enemies.ts';
+import { ENEMY_TUNING } from '../data/enemies.ts';
 import { DMG_TARGET_TOWER, DMG_FLAG } from '../core/damageQueue.ts';
 import { PF } from '../entities/projectilePool.ts';
 import { PROJ_SPRITE_ENEMY } from '../entities/world.ts';
@@ -27,18 +27,17 @@ export class EnemyCombatSystem {
       if ((e.attackCd[i] ?? 0) > 0) continue;
       if ((e.freezeT[i] ?? 0) > 0) continue;
 
-      const def = ENEMY_LIST[e.defIdx[i] ?? 0];
-      if (def === undefined) continue;
+      const dmg = e.dmg[i] ?? 0;
       // Menders deal no damage — they are a priority target, not a threat.
-      if (def.dmg <= 0) continue;
+      if (dmg <= 0) continue;
 
-      e.attackCd[i] = def.attackInterval;
+      e.attackCd[i] = e.attackInterval[i] ?? 1;
 
       if (state === ES.Attack) {
         world.queue.push(
           DMG_TARGET_TOWER,
           0,
-          def.dmg,
+          dmg,
           DMG_FLAG.Melee,
           e.x[i] ?? 0,
           e.y[i] ?? 0,
@@ -48,11 +47,11 @@ export class EnemyCombatSystem {
         if ((e.flags[i] ?? 0) & EF.VampiricAffix) {
           e.hp[i] = Math.min(
             e.hpMax[i] ?? 0,
-            (e.hp[i] ?? 0) + def.dmg * ENEMY_TUNING.vampiricAffixHeal,
+            (e.hp[i] ?? 0) + dmg * ENEMY_TUNING.vampiricAffixHeal,
           );
         }
       } else {
-        this.shoot(world, i, def.dmg);
+        this.shoot(world, i, dmg);
       }
     }
 

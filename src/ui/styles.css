@@ -212,6 +212,12 @@ button.dim {
 }
 
 .boss-fill {
+  /* Declared before .bar-fill in this file, so it needs the extra class to
+     win — same specificity loses to whichever comes later. */
+  background: none;
+}
+
+.bar-track.boss-track .bar-fill.boss-fill {
   background: linear-gradient(90deg, #ff7a5c, #e2564d);
 }
 
@@ -855,4 +861,71 @@ body.lefty .hud-purse {
   background: var(--rar-epic);
   border-color: var(--rar-epic);
   color: #1b0b30;
+}
+
+/* --- Ability buttons ------------------------------------------------------- */
+
+.abilities {
+  position: absolute;
+  right: calc(var(--safe-r) + 12px);
+  bottom: calc(var(--safe-b) + 250px);
+  display: grid;
+  gap: 8px;
+}
+
+body.lefty .abilities {
+  right: auto;
+  left: calc(var(--safe-l) + 12px);
+}
+
+.ability {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(21, 26, 35, 0.92);
+  overflow: hidden;
+}
+
+/* Cooldown sweep as a conic gradient: the compositor animates it, so it costs
+   the frame budget nothing. */
+.ability-ring {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: conic-gradient(rgba(127, 212, 168, 0.35) var(--p, 0deg), transparent 0deg);
+  pointer-events: none;
+}
+
+.ability-label {
+  position: relative;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+}
+
+.ability-cd {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ink);
+  pointer-events: none;
+}
+
+.ability.ready {
+  border-color: var(--accent);
+}
+
+.ability.ready .ability-label {
+  color: var(--accent);
+}
+
+.ability.active {
+  background: rgba(127, 212, 168, 0.24);
+  border-color: var(--accent);
 }

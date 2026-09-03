@@ -1,6 +1,7 @@
 import { el, button, setText, show } from './dom.ts';
 import { fmt, fmtTime } from '../core/format.ts';
 import { haptic, HAPTIC } from '../platform/haptics.ts';
+import { t } from '../data/strings.ts';
 
 /**
  * Menu, pause and result screens (SPEC §12.6).
@@ -26,23 +27,23 @@ export class MainMenu {
     const title = el('div', 'game-title', this.root);
     title.textContent = 'IRON SPIRE';
     const sub = el('div', 'game-sub', this.root);
-    sub.textContent = 'Fique. Fique mais forte que elas.';
+    sub.textContent = t('menu.tagline');
 
     // Resume comes first when it exists: a player who closed mid-run wants
     // their run back, not a fresh one.
-    this.resumeBtn = button('CONTINUAR RUN', 'primary interactive', this.root);
+    this.resumeBtn = button(t('menu.resume'), 'primary interactive', this.root);
     this.resumeBtn.hidden = true;
     this.resumeBtn.addEventListener('click', () => {
       haptic(HAPTIC.Medium);
       onResume();
     });
 
-    const play = button('JOGAR', 'primary interactive', this.root);
+    const play = button(t('menu.play'), 'primary interactive', this.root);
     play.addEventListener('click', () => {
       haptic(HAPTIC.Medium);
       onPlay();
     });
-    const talents = button('TALENTOS', 'interactive', this.root);
+    const talents = button(t('menu.talents'), 'interactive', this.root);
     talents.addEventListener('click', () => {
       haptic(HAPTIC.Light);
       onTalents();
@@ -76,9 +77,9 @@ export class PauseScreen {
     this.root = el('div', 'modal pause', parent);
     this.root.hidden = true;
     const title = el('div', 'modal-title', this.root);
-    title.textContent = 'PAUSA';
+    title.textContent = t('pause.title');
 
-    const resume = button('CONTINUAR', 'primary interactive', this.root);
+    const resume = button(t('pause.resume'), 'primary interactive', this.root);
     resume.addEventListener('click', () => {
       haptic(HAPTIC.Light);
       onResume();
@@ -86,12 +87,12 @@ export class PauseScreen {
     // Retreat pays full reward on purpose: punishing the exit makes players
     // leave the app running in a pocket, which burns battery and metrics
     // (SPEC §2.3).
-    const opts = button('OPÇÕES', 'interactive', this.root);
+    const opts = button(t('menu.options'), 'interactive', this.root);
     opts.addEventListener('click', () => {
       haptic(HAPTIC.Light);
       onOptions();
     });
-    const quit = button('RETIRAR-SE (100% da recompensa)', 'interactive', this.root);
+    const quit = button(t('pause.retreat'), 'interactive', this.root);
     quit.addEventListener('click', () => {
       haptic(HAPTIC.Medium);
       onQuit();
@@ -128,18 +129,18 @@ export class ResultScreen {
     this.title = el('div', 'modal-title', this.root);
 
     const stats = el('div', 'result-stats', this.root);
-    this.waveEl = statRow(stats, 'Onda alcançada');
-    this.killsEl = statRow(stats, 'Abates');
-    this.timeEl = statRow(stats, 'Tempo');
-    this.goldEl = statRow(stats, 'Ouro ganho');
-    this.coresEl = statRow(stats, 'Núcleos ◈');
+    this.waveEl = statRow(stats, t('result.wave'));
+    this.killsEl = statRow(stats, t('result.kills'));
+    this.timeEl = statRow(stats, t('result.time'));
+    this.goldEl = statRow(stats, t('result.gold'));
+    this.coresEl = statRow(stats, t('result.cores'));
 
-    const again = button('JOGAR DE NOVO', 'primary interactive', this.root);
+    const again = button(t('result.again'), 'primary interactive', this.root);
     again.addEventListener('click', () => {
       haptic(HAPTIC.Medium);
       onAgain();
     });
-    const menu = button('MENU', 'interactive', this.root);
+    const menu = button(t('result.menu'), 'interactive', this.root);
     menu.addEventListener('click', () => {
       haptic(HAPTIC.Light);
       onMenu();
@@ -147,7 +148,7 @@ export class ResultScreen {
   }
 
   render(r: RunResult): void {
-    setText(this.title, r.died ? 'A TORRE CAIU' : 'RETIRADA');
+    setText(this.title, r.died ? t('result.died') : t('result.retreat'));
     setText(this.waveEl, String(r.wave));
     setText(this.killsEl, fmt(r.kills));
     setText(this.timeEl, fmtTime(r.timeSec));

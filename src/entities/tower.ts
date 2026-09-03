@@ -6,6 +6,9 @@ import { makeModifiers, type MetaModifiers } from '../core/metaModifiers.ts';
 // Re-exported so gameplay code has one obvious import for tower concepts.
 export { ST, TF, STAT_COUNT };
 
+/** Far above anything reachable, far below where float32 stops being finite. */
+const STAT_CEILING = 1e30;
+
 const BASE = new Float32Array(STAT_COUNT);
 BASE[ST.Dmg] = BAL.tower.dmg;
 BASE[ST.FireRate] = BAL.tower.fireRate;
@@ -41,6 +44,20 @@ export class TowerStats {
   readonly pctMeta = new Float32Array(STAT_COUNT);
   readonly pctRun = new Float32Array(STAT_COUNT);
   readonly pctCard = new Float32Array(STAT_COUNT);
+  /**
+   * Timed buffs (abilities). A separate layer because the run layer is
+   * REBUILT from upgrade levels on every purchase — a buff written there
+   * would vanish the moment the player bought anything.
+   */
+  readonly flatTemp = new Float32Array(STAT_COUNT);
+  readonly pctTemp = new Float32Array(STAT_COUNT);
+  /**
+   * Multiplicative layers. `prodRun` belongs to upgrades and `prodMult` to
+   * cards; they are separate arrays because each is REBUILT from its own source
+   * and a shared one would have them clobbering each other.
+   */
+  readonly prodMeta = new Float32Array(STAT_COUNT).fill(1);
+  readonly prodRun = new Float32Array(STAT_COUNT).fill(1);
   readonly prodMult = new Float32Array(STAT_COUNT).fill(1);
 
   private readonly cache = new Float32Array(STAT_COUNT);
@@ -79,8 +96,11 @@ export class TowerStats {
   resetRun(): void {
     this.flatRun.fill(0);
     this.flatCard.fill(0);
+    this.flatTemp.fill(0);
     this.pctRun.fill(0);
     this.pctCard.fill(0);
+    this.pctTemp.fill(0);
+    this.prodRun.fill(1);
     this.prodMult.fill(1);
     this.flags = 0;
     this.slowAuraRadius = 0;
@@ -118,9 +138,23 @@ export class TowerStats {
   private recompute(): void {
     for (let s = 0; s < STAT_COUNT; s++) {
       const flat =
-        (BASE[s] ?? 0) + (this.flatMeta[s] ?? 0) + (this.flatRun[s] ?? 0) + (this.flatCard[s] ?? 0);
-      const pct = 1 + (this.pctMeta[s] ?? 0) + (this.pctRun[s] ?? 0) + (this.pctCard[s] ?? 0);
-      this.cache[s] = flat * pct * (this.prodMult[s] ?? 1);
+        (BASE[s] ?? 0) +
+        (this.flatMeta[s] ?? 0) +
+        (this.flatRun[s] ?? 0) +
+        (this.flatCard[s] ?? 0) +
+        (this.flatTemp[s] ?? 0);
+      const pct =
+        1 +
+        (this.pctMeta[s] ?? 0) +
+        (this.pctRun[s] ?? 0) +
+        (this.pctCard[s] ?? 0) +
+        (this.pctTemp[s] ?? 0);
+      const v =
+        flat * pct * (this.prodMeta[s] ?? 1) * (this.prodRun[s] ?? 1) * (this.prodMult[s] ?? 1);
+      // Compounding upgrades can overflow to Infinity on an absurd level count
+      // (a hand-edited save, or a very long prestige chain). A non-finite stat
+      // poisons positions and damage downstream, so clamp to a large finite.
+      this.cache[s] = Number.isFinite(v) ? v : STAT_CEILING;
     }
     // Caps are part of the stat contract, not of whoever reads the stat.
     this.cache[ST.CritChance] = clamp(this.cache[ST.CritChance] ?? 0, 0, BAL.tower.critChanceCap);

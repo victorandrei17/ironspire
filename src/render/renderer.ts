@@ -1,6 +1,6 @@
 import { VW, VH, ENEMY_CAP, R_TOWER_BODY } from '../core/constants.ts';
 import type { Viewport } from './viewport.ts';
-import type { RenderWorld, SpriteLayer } from './renderWorld.ts';
+import type { RenderWorld, SpriteLayer, EnemyLayer } from './renderWorld.ts';
 import { drawSprite, setWorldTransform, applyWorldTransform } from './drawSprite.ts';
 import { Ground } from './ground.ts';
 import { YSorter } from './layers.ts';
@@ -18,6 +18,8 @@ export class Renderer {
   private readonly ground = new Ground();
   private readonly ySorter = new YSorter(ENEMY_CAP);
   private shadowCanvas: HTMLCanvasElement | null = null;
+  /** Wall-clock seconds, for cosmetic pulses only — never for simulation. */
+  private time = 0;
 
   constructor(
     private readonly ctx: CanvasRenderingContext2D,
@@ -29,6 +31,7 @@ export class Renderer {
     const vp = this.viewport;
     const pixelScale = vp.scale * vp.dpr;
     this.flashScale = world.flashScale;
+    this.time = performance.now() * 0.001;
 
     // alpha:false means every pixel must be written each frame, but the arena
     // blit covers the middle — so only the letterbox bars need clearing. On a
@@ -59,6 +62,8 @@ export class Renderer {
       ctx.fillRect(0, 0, VW, VH);
     }
 
+    // Hazards sit on the floor, under everything that stands on it.
+    this.drawHazards(world);
     this.drawShadows(world, alpha);
     this.drawLayer(world.pickups, alpha);
 
@@ -119,6 +124,54 @@ export class Renderer {
   }
 
   /**
+   * Telegraphs and ground zones (SPEC §5.2).
+   *
+   * A telegraph fills from the outside in as its timer runs down, so the player
+   * reads *when* it lands, not just where. The live zone is a steady fill.
+   */
+  private drawHazards(world: RenderWorld): void {
+    const h = world.hazards;
+    if (h.count === 0) return;
+    const ctx = this.ctx;
+    applyWorldTransform(ctx);
+    for (let i = 0; i < h.count; i++) {
+      if (h.alive[i] === 0) continue;
+      const x = h.x[i] ?? 0;
+      const y = h.y[i] ?? 0;
+      const r = h.radius[i] ?? 0;
+      const tel = h.telegraphT[i] ?? 0;
+      const telMax = h.telegraphMax[i] ?? 0;
+
+      if (tel > 0 && telMax > 0) {
+        const t = 1 - tel / telMax;
+        ctx.fillStyle = 'rgba(226,86,77,0.16)';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(226,86,77,0.34)';
+        ctx.beginPath();
+        ctx.arc(x, y, r * t, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,140,120,0.9)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.stroke();
+        continue;
+      }
+
+      const fade = Math.min(1, (h.life[i] ?? 0) / Math.max(0.001, (h.lifeMax[i] ?? 1) * 0.3));
+      ctx.fillStyle = `rgba(168,111,240,${(0.26 * fade).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(200,160,255,${(0.7 * fade).toFixed(3)})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  /**
    * Shadows are a baked bitmap blitted per enemy, not a path fill.
    *
    * 400 ellipse fills a frame means 400 path rasterisations; one baked sprite
@@ -164,13 +217,29 @@ export class Renderer {
   /** Set from the reduce-flash preference before each frame. */
   private flashScale = 1;
 
-  private drawEnemiesSorted(e: SpriteLayer, alpha: number): void {
+  private drawEnemiesSorted(e: EnemyLayer, alpha: number): void {
     this.ySorter.build(e.y, e.alive, e.count);
     const order = this.ySorter.order;
+    const ctx = this.ctx;
     for (let k = 0; k < this.ySorter.length; k++) {
       const i = order[k] ?? 0;
       const key = e.keys[e.spriteIdx[i] ?? 0];
       if (key === undefined) continue;
+
+      // Elite trim is an OVERLAY, never a recolour: the archetype's silhouette
+      // and hue have to stay readable (SPEC §13.7).
+      if (((e.flags[i] ?? 0) & ELITE_FLAG) !== 0) {
+        applyWorldTransform(ctx);
+        const ex = lerpArr(e.prevX, e.x, i, alpha);
+        const ey = lerpArr(e.prevY, e.y, i, alpha);
+        const pulse = 1 + Math.sin(this.time * 4 + i) * 0.06;
+        ctx.strokeStyle = 'rgba(242,193,78,0.9)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(ex, ey, (e.radius[i] ?? 14) * 1.25 * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
       drawSprite(
         this.ctx,
         key,
@@ -230,6 +299,9 @@ export class Renderer {
     ctx.stroke();
   }
 }
+
+/** EF.Elite. Duplicated as a bare bit so render/ stays out of gameplay data. */
+const ELITE_FLAG = 1;
 
 function lerpArr(prev: Float32Array, cur: Float32Array, i: number, a: number): number {
   const p = prev[i] ?? 0;

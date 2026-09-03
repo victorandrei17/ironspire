@@ -1,5 +1,6 @@
 import { DamageQueue } from '../core/damageQueue.ts';
 import { EnemyPool } from './enemyPool.ts';
+import { HazardPool } from './hazardPool.ts';
 import { ProjectilePool } from './projectilePool.ts';
 import { ParticlePool } from './particlePool.ts';
 import { PickupPool } from './pickupPool.ts';
@@ -7,6 +8,7 @@ import { DamageNumberPool } from './damageNumberPool.ts';
 import { Tower } from './tower.ts';
 import { SpatialHash } from '../core/spatialHash.ts';
 import { ENEMY_SPRITE_KEYS } from '../data/enemies.ts';
+import { BOSSES } from '../data/bosses.ts';
 import { R_DESPAWN, TOWER_X, TOWER_Y, ENEMY_CAP } from '../core/constants.ts';
 import type { SpriteKey } from '../render/spriteKeys.gen.ts';
 
@@ -34,6 +36,8 @@ export class World {
   readonly particles = new ParticlePool();
   readonly pickups = new PickupPool();
   readonly damageNumbers = new DamageNumberPool();
+  /** Boss telegraphs and ground hazards (SPEC §5.2). */
+  readonly hazards = new HazardPool();
   readonly tower = new Tower();
 
   /**
@@ -50,6 +54,8 @@ export class World {
     defIdx: 0,
     radius: 10,
     speed: 80,
+    dmg: 2,
+    attackInterval: 0.7,
     flags: 0,
     gold: 0,
     xp: 0,
@@ -70,7 +76,9 @@ export class World {
       pad * 2,
       ENEMY_CAP,
     );
-    this.enemies.keys = ENEMY_SPRITE_KEYS;
+    // Archetype sprites first, boss sprites appended: `spriteIdx` for a boss is
+    // ENEMY_LIST.length + bossIdx, which is what the spawner writes.
+    this.enemies.keys = [...ENEMY_SPRITE_KEYS, ...BOSSES.map((b) => b.sprite)];
     this.projectiles.keys = PROJ_KEYS;
     this.pickups.keys = PICKUP_KEYS;
     this.particles.keys = PARTICLE_KEYS;
@@ -84,6 +92,7 @@ export class World {
     this.particles.reset();
     this.pickups.reset();
     this.damageNumbers.reset();
+    this.hazards.reset();
     this.tower.reset(TOWER_X, TOWER_Y);
   }
 

@@ -23,7 +23,7 @@ function spawnEnemy(world: World, id: string, hp: number, x = 100, y = 100): num
   const idx = enemyIndex(id as never);
   const def = ENEMY_LIST[idx]!;
   const i = world.enemies.spawn(x, y, idx, idx, hp, def.radius);
-  world.enemies.flags[i] = def.flags;
+  world.enemies.applyArchetype(i, def);
   return i;
 }
 

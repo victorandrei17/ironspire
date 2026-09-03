@@ -1,6 +1,6 @@
 import type { RunState } from '../core/state.ts';
 import type { TowerStats } from '../entities/tower.ts';
-import { UPGRADES, upgradeCost, type UpgradeDef } from '../data/upgrades.ts';
+import { UPGRADES, upgradeCost, type UpgradeDef, type UpgradeKind } from '../data/upgrades.ts';
 import { geoAffordable } from '../core/math.ts';
 import { bus, EV } from '../core/events.ts';
 
@@ -112,12 +112,18 @@ function levelCost(def: UpgradeDef, level: number, costMult: number): number {
 export function applyUpgrades(run: RunState, stats: TowerStats): void {
   stats.flatRun.fill(0);
   stats.pctRun.fill(0);
+  stats.prodRun.fill(1);
   for (let i = 0; i < UPGRADES.length; i++) {
     const def = UPGRADES[i];
     if (def === undefined) continue;
     const level = run.upgradeLevels[i] ?? 0;
     if (level === 0) continue;
-    if (def.kind === 'flat') {
+    // Widened on purpose: the literal union narrows to whatever kinds the
+    // table happens to use today, and adding one back would then not compile.
+    const kind: UpgradeKind = def.kind;
+    if (kind === 'mult') {
+      stats.prodRun[def.stat] = (stats.prodRun[def.stat] ?? 1) * Math.pow(def.perLevel, level);
+    } else if (kind === 'flat') {
       stats.flatRun[def.stat] = (stats.flatRun[def.stat] ?? 0) + def.perLevel * level;
     } else {
       stats.pctRun[def.stat] = (stats.pctRun[def.stat] ?? 0) + def.perLevel * level;

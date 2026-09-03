@@ -297,6 +297,8 @@ function splitOnDeath(world: World, i: number, rng: Rng): void {
     );
     if (j < 0) return;
     e.speed[j] = t.speed;
+    e.dmg[j] = t.dmg;
+    e.attackInterval[j] = t.attackInterval;
     e.flags[j] = t.flags;
     e.goldValue[j] = t.gold;
     e.xpValue[j] = t.xp;

@@ -11,8 +11,7 @@ function spawn(world: World, id: string, x: number, y: number, hp = 100): number
   const idx = enemyIndex(id as never);
   const def = ENEMY_LIST[idx]!;
   const i = world.enemies.spawn(x, y, idx, idx, hp, def.radius);
-  world.enemies.speed[i] = def.speed;
-  world.enemies.flags[i] = def.flags;
+  world.enemies.applyArchetype(i, def);
   return i;
 }
 

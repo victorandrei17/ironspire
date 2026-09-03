@@ -23,4 +23,7 @@ game.start();
   talents(): void {
     game.debugOpenTalents();
   },
+  wave(n: number): void {
+    game.debugJumpToWave(n);
+  },
 };

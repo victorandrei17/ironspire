@@ -89,10 +89,15 @@ if (process.argv.includes('--auto')) {
       }
       const ups = [...document.querySelectorAll('.up-btn:not(.dim)')];
       if (ups.length > 0) {
-        const pick = ups[Math.floor(Math.random() * ups.length)];
+        // Favour the first two (damage, fire rate) the way a real player does,
+        // so the session actually reaches the boss waves worth looking at.
+        const strong = ups.filter((_, k) => k < 2);
+        const pool = strong.length > 0 && Math.random() < 0.8 ? strong : ups;
+        const pick = pool[Math.floor(Math.random() * pool.length)];
         pick.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
         pick.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
       }
+      for (const a of document.querySelectorAll('.ability.ready')) a.click();
       const next = document.querySelector('.next-wave:not([hidden])');
       if (next) next.click();
     }, 500);
@@ -141,6 +146,13 @@ if (process.argv.includes('--resume')) {
     }
   });
   await page.waitForTimeout(1500);
+  reloaded = await page.evaluate(() => globalThis.ironSpire?.state ?? null);
+}
+const waveArg = process.argv.find((a) => a.startsWith('--wave='));
+if (waveArg !== undefined) {
+  const n = Number(waveArg.split('=')[1]);
+  await page.evaluate((w) => globalThis.ironSpire?.wave?.(w), n);
+  await page.waitForTimeout(2500);
   reloaded = await page.evaluate(() => globalThis.ironSpire?.state ?? null);
 }
 if (process.argv.includes('--talents')) {

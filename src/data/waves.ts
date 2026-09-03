@@ -119,6 +119,11 @@ export function enemySpeedMul(wave: number): number {
   return Math.min(BAL.wave.speedCap, BAL.wave.speedBase * Math.pow(BAL.wave.speedGrowth, wave - 1));
 }
 
+/** Multiplier on each archetype's base damage for this wave. */
+export function enemyDmgMul(wave: number): number {
+  return Math.pow(BAL.wave.dmgGrowth, wave - 1);
+}
+
 export function goldDrop(wave: number): number {
   return BAL.wave.goldBase * Math.pow(BAL.wave.goldGrowth, wave - 1);
 }

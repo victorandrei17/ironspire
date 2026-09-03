@@ -83,6 +83,8 @@ export class ProjectileSystem {
       //
       // `pierce` counts EXTRA enemies passed through, so pierce=2 means three
       // hits: the shot is spent on the hit taken while pierce is already 0.
+      // An orbital is a persistent hazard, not a shot: it hits and keeps going.
+      const orbital = ((p.flags[i] ?? 0) & PF.Orbital) !== 0;
       let spent = false;
       let resolved = 0;
       while (resolved < hits && !spent) {
@@ -104,11 +106,12 @@ export class ProjectileSystem {
         this.applyHit(world, i, j, x1, y1);
         if (p.alive[i] === 0) break;
 
+        if (orbital) break; // one enemy per orb per tick, and it survives
         if ((p.pierce[i] ?? 0) > 0) p.pierce[i] = (p.pierce[i] ?? 0) - 1;
         else spent = true;
       }
 
-      if (p.alive[i] === 0) continue;
+      if (p.alive[i] === 0 || orbital) continue;
       // Out of pierce: chain if the build has it, otherwise the shot is done.
       if (spent && !this.tryChain(world, i)) p.free(i);
     }

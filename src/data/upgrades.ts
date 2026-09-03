@@ -7,7 +7,18 @@ import { ST } from './stats.ts';
  * `cost(level) = floor(base * growth^level)`. `apply` writes into the tower's
  * run layer; it is pure data plus one assignment, never gameplay.
  */
-export type UpgradeKind = 'flat' | 'pctOfBase';
+/**
+ * `mult` compounds: level L multiplies the stat by `perLevel^L`.
+ *
+ * SPEC §7.2 originally had every upgrade additive. The balance simulator made
+ * it clear that cannot work: gold income is geometric, so affordable LEVELS
+ * grow logarithmically, an additive bonus therefore grows logarithmically too,
+ * and it has to keep up with enemy HP growing exponentially. The gap is not a
+ * tuning problem, it is a shape problem — by wave 100 the additive curve is off
+ * by six orders of magnitude. The stats that must track HP compound; the ones
+ * meant to stay bounded (range, pickup radius, crit chance) stay additive.
+ */
+export type UpgradeKind = 'flat' | 'pctOfBase' | 'mult';
 
 export type UpgradeDef = {
   readonly id: string;
@@ -32,24 +43,24 @@ export const UPGRADES = [
     name: 'DANO',
     icon: 'ui/up_damage',
     stat: ST.Dmg,
-    kind: 'pctOfBase',
-    perLevel: 0.12,
+    kind: 'mult',
+    perLevel: 1.075,
     costBase: 20,
     costGrowth: 1.115,
     maxLevel: 0,
-    blurb: '+12%',
+    blurb: '×1.075',
   },
   {
     id: 'rate',
     name: 'CADÊNCIA',
     icon: 'ui/up_rate',
     stat: ST.FireRate,
-    kind: 'pctOfBase',
-    perLevel: 0.07,
+    kind: 'mult',
+    perLevel: 1.035,
     costBase: 25,
     costGrowth: 1.125,
     maxLevel: 0,
-    blurb: '+7%',
+    blurb: '×1.035',
   },
   {
     id: 'range',
@@ -68,24 +79,26 @@ export const UPGRADES = [
     name: 'VIDA',
     icon: 'ui/up_hp',
     stat: ST.HpMax,
-    kind: 'flat',
-    perLevel: 18,
+    kind: 'mult',
+    perLevel: 1.055,
     costBase: 35,
     costGrowth: 1.12,
     maxLevel: 0,
-    blurb: '+18',
+    blurb: '×1.055',
   },
   {
     id: 'regen',
     name: 'REGEN',
     icon: 'ui/up_regen',
     stat: ST.HpRegen,
+    // Regen stays additive AND is expressed as a share of max HP downstream,
+    // so it scales with the Vida upgrade instead of becoming irrelevant.
     kind: 'flat',
-    perLevel: 0.25,
+    perLevel: 0.6,
     costBase: 60,
     costGrowth: 1.16,
     maxLevel: 0,
-    blurb: '+0.25/s',
+    blurb: '+0.6/s',
   },
   {
     id: 'critchance',
@@ -106,12 +119,12 @@ export const UPGRADES = [
     name: 'D.CRÍT',
     icon: 'ui/up_critdmg',
     stat: ST.CritMult,
-    kind: 'pctOfBase',
-    perLevel: 0.12,
+    kind: 'mult',
+    perLevel: 1.05,
     costBase: 70,
     costGrowth: 1.15,
     maxLevel: 0,
-    blurb: '+12%',
+    blurb: '×1.05',
   },
   {
     id: 'pickup',

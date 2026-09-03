@@ -1,7 +1,7 @@
 import type { EnemyPool } from '../entities/enemyPool.ts';
 import { ES, EF } from '../data/enemyFlags.ts';
 import type { SpatialHash } from '../core/spatialHash.ts';
-import { ENEMY_TUNING, ENEMY_LIST } from '../data/enemies.ts';
+import { ENEMY_TUNING } from '../data/enemies.ts';
 import { R_TOWER_BODY } from '../core/constants.ts';
 
 /**
@@ -16,22 +16,28 @@ export class AiSystem {
   /** Preallocated neighbour buffer — one query's worth, reused every enemy. */
   private readonly neighbours = new Int32Array(64);
 
+  /**
+   * @param scriptedHandle handle of an enemy whose velocity is being driven by
+   *   another system this tick (a dashing boss); steering leaves it alone.
+   */
   update(
     e: EnemyPool,
     hash: SpatialHash,
     towerX: number,
     towerY: number,
     dt: number,
+    scriptedHandle = -1,
   ): void {
     const sepR = ENEMY_TUNING.separationRadius;
     const sepR2 = sepR * sepR;
     const sepForce = ENEMY_TUNING.separationForce;
     const accel = ENEMY_TUNING.steerAccel * dt;
 
+    const scriptedIdx = scriptedHandle >= 0 ? e.resolve(scriptedHandle) : -1;
+
     for (let i = 0; i < e.count; i++) {
       if (e.alive[i] === 0) continue;
-      const def = ENEMY_LIST[e.defIdx[i] ?? 0];
-      if (def === undefined) continue;
+      if (i === scriptedIdx) continue;
 
       const ex = e.x[i] ?? 0;
       const ey = e.y[i] ?? 0;
@@ -44,11 +50,13 @@ export class AiSystem {
       const dist = Math.sqrt(d2) || 1;
       const invD = 1 / dist;
 
-      // How close this archetype wants to be.
-      const isRanged = (def.flags & EF.Ranged) !== 0 || def.preferredRange > 0;
+      // How close this entity wants to be. Read from the pool, so a boss with
+      // its own table is handled by the same code as an archetype.
+      const preferred = e.preferredRange[i] ?? 0;
+      const isRanged = preferred > 0;
       const stopAt = isRanged
-        ? def.preferredRange
-        : R_TOWER_BODY + def.radius + ENEMY_TUNING.contactSlack;
+        ? preferred
+        : R_TOWER_BODY + (e.radius[i] ?? 0) + ENEMY_TUNING.contactSlack;
 
       let seekX = dx * invD;
       let seekY = dy * invD;

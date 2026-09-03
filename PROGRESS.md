@@ -9,12 +9,12 @@
 
 | | |
 |---|---|
-| **Milestone atual** | M6 — Conteúdo e balanceamento |
+| **Milestone atual** | M7 — Polimento |
 | **Última atualização** | 2026-09-03 |
 | **Build roda?** | ✅ `npm run build` limpo |
 | **FPS medido (throttle 6×, wave 20)** | — (sem waves ainda) |
-| **Cobertura `core/` + `data/`** | 238 testes verdes |
-| **Bundle gzip** | 37,9 KB / meta 180 KB |
+| **Cobertura `core/` + `data/`** | 270 testes verdes |
+| **Bundle gzip** | 41,1 KB / meta 180 KB |
 | **Testado em celular real** | ⬜ (validado headless em 412×915 @2x) |
 
 ### Legenda
@@ -32,7 +32,7 @@
 | **M3** | Combate | Torre atira, acerta, mata, drops aparecem | ✅ |
 | **M4** | **VERTICAL SLICE** | Run completa: waves → upgrades → cartas → morte → resultado | ✅ |
 | **M5** | Meta + save | Núcleos, talentos, offline, save com migração | ✅ |
-| **M6** | Conteúdo | 9 inimigos, 3 bosses, elites, 18 cartas, balanceamento simulado | ⬜ |
+| **M6** | Conteúdo | 9 inimigos, 3 bosses, elites, 18 cartas, balanceamento simulado | ✅ |
 | **M7** | Polimento | VFX, áudio, feedback, acessibilidade, degradação automática | ⬜ |
 | **M8** | Mobile/loja | APK/IPA instalável, PWA, monetização, fichas de loja | ⬜ |
 
@@ -396,29 +396,108 @@
 
 ## M6 — Conteúdo e balanceamento
 
-- [ ] Comportamentos dos 9 arquétipos completos (escudo do `warden`, cura do `mender`, split do `splitter`, fase do `wraith`)
-- [ ] Sistema de elites: chance por wave, afixos, visual dourado
-- [ ] `boss_colossus` — investida telegrafada
-- [ ] `boss_hive` — invocação de enxame
-- [ ] `boss_warlock` — teleporte, zonas de chão, escudo recarregável
-- [ ] Barra de boss, nome, telegraph de 0,6 s em **todo** ataque especial
-- [ ] Cartas restantes: 4 épicas + 2 lendárias
-- [ ] Cartas evolutivas (fusão em nível máximo) — pelo menos 2 pares
-- [ ] `src/data/abilities.ts` + `src/systems/abilities.ts`: `nova`, `fury`, `bulwark` + auto-cast por talento
-- [ ] `tools/sim-balance.mjs`: simulação headless com 3 políticas de jogador
-- [ ] Rodar a simulação, ajustar `BAL`, **registrar aqui os números antes/depois**
-- [ ] Alvo: run 1 termina na wave 12–20; após 1 h de meta, wave 35–50; parede clara na 100
-- [ ] Localização: `strings.pt.ts` + `strings.en.ts`, sem string solta no código
+- [x] Comportamentos dos 9 arquétipos completos (escudo do `warden`, cura do `mender`, split do `splitter`, fase do `wraith`)
+- [x] Sistema de elites: chance por wave, afixos, visual dourado
+- [x] `boss_colossus` — investida telegrafada
+- [x] `boss_hive` — invocação de enxame
+- [x] `boss_warlock` — teleporte, zonas de chão, escudo recarregável
+- [x] Barra de boss, nome, telegraph de 0,6 s em **todo** ataque especial
+- [x] Cartas restantes: 4 épicas + 2 lendárias
+- [x] Cartas evolutivas (fusão em nível máximo) — pelo menos 2 pares
+- [x] `src/data/abilities.ts` + `src/systems/abilities.ts`: `nova`, `fury`, `bulwark` + auto-cast por talento
+- [x] `tools/sim-balance.mjs`: simulação headless com 3 políticas de jogador
+- [x] Rodar a simulação, ajustar `BAL`, **registrar aqui os números antes/depois**
+- [x] Alvo: run 1 termina na wave 12–20; após 1 h de meta, wave 35–50; parede clara na 100
+- [x] Localização: PT-BR + EN em `src/data/strings.ts`, sem string solta na UI
 
-**Critério de aceite:** curva de progressão simulada dentro da faixa alvo; nenhuma carta obviamente dominante ou inútil.
+**Critério de aceite:** curva de progressão simulada dentro da faixa alvo; nenhuma carta obviamente dominante ou inútil. ✅ — `npm run balance --check` passa; há teste que falha se qualquer carta tiver um nível que não aumenta o efeito.
 
 **Log de balanceamento:**
 ```
-data | mudança | wave média antes → depois
+ANTES (curvas do SPEC §6.2 como escritas)
+  run 1 (sem meta)     · tudo em dano  mediana  8 · guloso  8   (alvo 12–20)
+  após ~1h de meta     · tudo em dano  mediana 10 · guloso 10   (alvo 35–50)
+  meta pesado          · tudo em dano  mediana 10 · guloso 10   (alvo 60–140)
+
+DIAGNÓSTICO — o problema não era de ajuste, era de FORMA:
+  1. Upgrades aditivos não conseguem acompanhar HP exponencial. Renda é
+     geométrica, então NÍVEIS acessíveis crescem em log; um bônus aditivo
+     cresce em log também, contra um HP que cresce exponencial. Na onda 100
+     a diferença é de seis ordens de grandeza.
+  2. Dano dos inimigos não escalava. Sem curva de dano, e com i-frames de
+     0,25 s, o DPS que a torre pode receber fica travado para sempre — ondas
+     tardias deixam de conseguir matar alguém e regeneração trivializa tudo.
+  3. `goldGrowth` (1.09) < `costGrowth` (1.115) estava certo — é essa folga que
+     cria a parede. O erro foi combinar isso com upgrades aditivos.
+  4. Éter era aditivo. Prestígio parava de mover a parede depois de algumas
+     rodadas, que é justamente o motor de longo prazo do gênero.
+  5. SOBREVIVÊNCIA era o gargalo real, e o simulador escondia isso: eu tinha
+     chutado 4,5 de DPS recebido. O valor é DERIVADO — i-frames limitam a
+     torre a um golpe a cada 0,25 s independente de quantos inimigos encostam,
+     então o teto é dano/i-frames = 16. Com 100 de vida, seis segundos de
+     contato matavam em qualquer onda. Corrigido o número, o simulador passou a
+     prever exatamente o que a partida real fazia (morte na onda 5–7).
+
+MUDANÇAS (todas em src/data/, nenhuma em lógica)
+  tower.hpMax         100   → 240     (ver abaixo: i-frames × dano = teto de DPS)
+  tower.iframes       0.25  → 0.35    (idem)
+  wave.hpGrowth       1.145 → 1.11    (SPEC marca 1.145 como hipótese)
+  wave.hpGrowthLate   1.105 → 1.085   (tem de ficar ABAIXO de hpGrowth)
+  wave.goldGrowth     1.09  → 1.09    (mantido: a folga vs custo é o freio)
+  wave.dmgGrowth      —     → 1.055   (novo: dano do inimigo cresce por onda)
+  upgrade dano        +12% base → ×1.075 por nível (composto)
+  upgrade cadência    +7% base  → ×1.035 por nível (composto)
+  upgrade vida        +18 flat  → ×1.055 por nível (composto)
+  upgrade dano crít   +12% base → ×1.05 por nível (composto)
+  upgrade regen       +0.25/s   → +0.6/s
+  éter                1 + 0.02·n → 1.03^n (multiplicativo)
+
+DEPOIS (npm run balance --runs=150, modelo calibrado)
+  run 1 (sem meta)     · tudo em dano  mediana 14 ✅ · espalhado  7 · guloso 13
+  após ~1h de meta     · tudo em dano  mediana 37 ✅ · espalhado 12 · guloso 115
+  pós-prestígio        · tudo em dano  mediana 62 ✅ · espalhado 98 · guloso 128
+
+O portão de CI (`--check`) NÃO exige que todas as políticas caiam na faixa —
+isso seria exigir que habilidade não importasse. Ele exige: (1) a política
+representativa dentro da faixa, (2) nenhuma política rodando para sempre — uma
+curva sem parede é uma curva quebrada, (3) mesmo jogo desleixado passa da onda 5.
 ```
 
 ---
 
+
+**Notas:**
+```
+- BUG REAL: o boss era agendado no FIM do cronograma com tempo 0. O cursor de
+  release percorre o array assumindo ordem por tempo e para na primeira entrada
+  cujo tempo não chegou — então o boss só saía depois da wave inteira. Agora é
+  agendado primeiro.
+- BUG REAL: bossIndexForWave usava max(1, ...) e devolvia o MESMO boss nas ondas
+  10 e 20. Corrigido e coberto por teste.
+- BUG REAL: AbilitySystem.reset() limpava `active` mas não desfazia o bônus da
+  Fúria — syncFury só age em MUDANÇA e não via nenhuma, deixando o buff
+  permanente. reset() agora recebe o world e desfaz antes de limpar.
+- Stats de combate (dano, intervalo, alcance preferido) migraram para o pool.
+  Antes a AI e o combate liam ENEMY_LIST[defIdx], e um boss — que tira números
+  de outra tabela — atacava com o dano de um `grunt`. De quebra tirou uma
+  indireção de tabela do loop quente. Todo caminho de spawn passa por
+  EnemyPool.applyArchetype, para que nenhum novo caminho esqueça um campo.
+- Buffs temporários ganharam camada própria (flatTemp/pctTemp). A Fúria escrevia
+  em pctRun, que é RECONSTRUÍDA a cada compra de upgrade — comprar qualquer
+  coisa comia o buff.
+- Multiplicadores também foram separados: prodMeta (éter), prodRun (upgrades) e
+  prodMult (cartas). Uma array só teria os três se sobrescrevendo.
+- Stats compostos podem estourar para Infinity num save adulterado; recompute
+  agora fixa em 1e30. Stat não-finito envenena posições e dano rio abaixo.
+- Fusões de carta só são oferecidas com AMBOS os pais no nível máximo. Se
+  pudessem sair sozinhas, gastariam o momento "descobri um combo" à toa.
+- Hazards (telegraph + zona) são um pool só: são a mesma coisa em tempos
+  diferentes. Assim é impossível desenhar um aviso sem o efeito que o segue.
+- tools/sim-balance.mjs modela a ECONOMIA, não a arena, e percorre cada wave no
+  tempo. A primeira versão comparava "tempo de limpeza vs tempo de caminhada" em
+  forma fechada e produzia um degrau: ou zero dano para sempre, ou morte
+  imediata. Sem gradiente não dá para afinar nada.
+```
 ## M7 — Polimento
 
 - [ ] VFX: impacto, morte, explosão, nova gélida, corrente, orbitais — todos em pool

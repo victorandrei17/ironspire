@@ -13,8 +13,7 @@ function spawnOne(world: World, id: keyof typeof ENEMIES, x: number, y: number):
   const idx = enemyIndex(id);
   const def = ENEMY_LIST[idx]!;
   const i = world.enemies.spawn(x, y, idx, idx, 100, def.radius);
-  world.enemies.speed[i] = def.speed;
-  world.enemies.flags[i] = def.flags;
+  world.enemies.applyArchetype(i, def);
   return i;
 }
 
