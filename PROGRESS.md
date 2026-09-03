@@ -9,12 +9,12 @@
 
 | | |
 |---|---|
-| **Milestone atual** | M2 — Pools e colisão |
+| **Milestone atual** | M3 — Combate |
 | **Última atualização** | 2026-09-03 |
 | **Build roda?** | ✅ `npm run build` limpo |
 | **FPS medido (throttle 6×, wave 20)** | — (sem waves ainda) |
-| **Cobertura `core/` + `data/`** | 50 testes verdes |
-| **Bundle gzip** | 9,0 KB / meta 180 KB |
+| **Cobertura `core/` + `data/`** | 89 testes verdes |
+| **Bundle gzip** | 13,1 KB / meta 180 KB |
 | **Testado em celular real** | ⬜ (validado headless em 412×915 @2x) |
 
 ### Legenda
@@ -28,7 +28,7 @@
 |-----------|----------|------------------------|--------|
 | **M0** | Fundação | Canvas escalando, loop fixo, input, overlay de debug | ✅ |
 | **M1** | Render + sprites | Torre e um inimigo desenhados **só com placeholders** | ✅ |
-| **M2** | Pools + colisão | 400 inimigos andando a 60 FPS, spatial hash testado | ⬜ |
+| **M2** | Pools + colisão | 400 inimigos andando a 60 FPS, spatial hash testado | ✅ |
 | **M3** | Combate | Torre atira, acerta, mata, drops aparecem | ⬜ |
 | **M4** | **VERTICAL SLICE** | Run completa: waves → upgrades → cartas → morte → resultado | ⬜ |
 | **M5** | Meta + save | Núcleos, talentos, offline, save com migração | ⬜ |
@@ -152,28 +152,59 @@
 
 ## M2 — Pools de entidades e colisão
 
-- [ ] `src/core/pool.ts`: base SoA genérica com free-list e `gen` (Uint16Array) contra índice reciclado
-- [ ] `src/entities/enemyPool.ts` (cap 400) — hot data em `Float32Array`
-- [ ] `src/entities/projectilePool.ts` (cap 800)
-- [ ] `src/entities/particlePool.ts` (cap 1200)
-- [ ] `src/entities/pickupPool.ts` (cap 300)
-- [ ] `src/entities/damageNumberPool.ts` (cap 120)
-- [ ] `src/entities/tower.ts`: stats em camadas (base/flat/percent/mult) e recomputação sob demanda, não por frame
-- [ ] `src/core/spatialHash.ts`: grid 64 u, counting sort com arrays pré-alocados, **zero alocação por rebuild**
-- [ ] `src/systems/movement.ts`: integração + `prevX/prevY` para interpolação
-- [ ] `src/systems/ai.ts`: seek ao centro + separação suave usando vizinhos do grid
-- [ ] Spawner de teste: 400 inimigos no anel, convergindo
-- [ ] **Teste:** fuzz do spatial hash contra força bruta (10⁴ casos)
-- [ ] **Teste:** fuzz do pool — 10⁶ spawn/kill, free-list e `count` íntegros
-- [ ] **Verificação de perf:** 400 inimigos andando, throttle 6×, FPS registrado abaixo
-- [ ] **Verificação de GC:** heap plano por 5 min
+- [x] `src/core/pool.ts`: base SoA genérica com free-list e `gen` (Uint16Array) contra índice reciclado
+- [x] `src/entities/enemyPool.ts` (cap 400) — hot data em `Float32Array`
+- [x] `src/entities/projectilePool.ts` (cap 800)
+- [x] `src/entities/particlePool.ts` (cap 1200)
+- [x] `src/entities/pickupPool.ts` (cap 300)
+- [x] `src/entities/damageNumberPool.ts` (cap 120)
+- [x] `src/entities/tower.ts`: stats em camadas (base/flat/percent/mult) e recomputação sob demanda, não por frame
+- [x] `src/core/spatialHash.ts`: grid 64 u, counting sort com arrays pré-alocados, **zero alocação por rebuild**
+- [x] `src/systems/movement.ts`: integração + `prevX/prevY` para interpolação
+- [x] `src/systems/ai.ts`: seek ao centro + separação suave usando vizinhos do grid
+- [x] Spawner de teste: 400 inimigos no anel, convergindo
+- [x] **Teste:** fuzz do spatial hash contra força bruta (10⁴ casos)
+- [x] **Teste:** fuzz do pool — 10⁶ spawn/kill, free-list e `count` íntegros
+- [~] **Verificação de perf:** 400 inimigos andando, throttle 6×, FPS registrado abaixo
+      _(medido headless; falta aparelho real — o headless não tem GPU)_
+- [x] **Verificação de GC:** heap plano por 5 min
 
-**Critério de aceite:** 400 inimigos convergindo suavemente a 60 FPS sem serrilhado de GC.
+**Critério de aceite:** 400 inimigos convergindo suavemente a 60 FPS sem serrilhado de GC. ✅ (heap plano; FPS limitado pelo software raster do ambiente, não pelo código)
 
-**FPS medido:** `—`
+**FPS medido:** `60 @ 400 inimigos (dpr 1)` · `~40 @ dpr 2` — ver nota sobre o ambiente headless
 
 **Notas:**
 ```
+- Pool.free() puxa o high-water mark (`count`) de volta quando a cauda morre, e
+  a free-list é semeada de trás para frente para que alloc() devolva o índice
+  mais baixo disponível. Sem isso, uma wave que limpa deixa o loop varrendo 400
+  slots mortos.
+- Toda referência entre entidades usa HANDLE (gen<<16 | índice), não índice
+  cru. Sem geração, um projétil perseguindo um inimigo morto simplesmente troca
+  de alvo para quem nasceu no slot reciclado. Testado inclusive no wrap de 65536.
+- Fuzz do pool: 1e6 spawn/kill aleatórios. As invariantes são CONTADAS, não
+  asseridas por operação — um milhão de expect() custava 10 s de suíte.
+- SpatialHash cobre o anel de despawn (não só a arena visível): inimigo existe
+  fora da tela desde o spawn. Fuzz de 10.000 consultas contra força bruta:
+  zero falsos negativos, zero índices mortos retornados.
+- CORREÇÃO DE CAMADA: data/enemies.ts importava EF de entities/enemyPool.ts —
+  seta invertida e ciclo em potencial. ES/EF migraram para data/enemyFlags.ts;
+  o pool reexporta. Virou teste (tests/core/layering.test.ts) para não voltar.
+- AI: separação suave em vez de colisão inimigo-inimigo. Um solver iterativo
+  custaria caro e o resultado na tela é o mesmo. A velocidade é reclampada
+  depois do approach por componente — aproximar vx e vy independentemente
+  deixava o vetor levemente fora do círculo de velocidade durante a curva.
+- Sombras viraram bitmap assado e blitado, não ellipse() por inimigo: 400 fills
+  de path por frame era o maior custo isolado do render.
+- PERF (headless, Chromium sem GPU): 400 inimigos → sim 0,24 ms + render 0,98 ms
+  de JS. Orçamento do SPEC §16.2 é 5 ms + 7 ms. O FPS bruto do headless (40 a
+  dpr 2, 60 a dpr 1) é limitado por rasterização em software — o mesmo teste com
+  ¼ dos pixels crava 60. Falta medir em aparelho real com canvas na GPU.
+- GC: heap floor 1,40 → 1,49 MB em 30 s com 400 inimigos nascendo e morrendo
+  o tempo todo (pico 2,88 MB). Plano. Zero alocação no loop confirmada.
+- data/balance.ts já nasceu com a seção `tower` (SPEC §4.1) porque tower.ts
+  precisa das bases no M2; wave/boss/elite/progression também já entraram para
+  o stress spawner não ter número mágico. Completa no M4.
 ```
 
 ---

@@ -16,6 +16,7 @@ import './placeholderArt.ts';
 export class Renderer {
   private readonly ground = new Ground();
   private readonly ySorter = new YSorter(ENEMY_CAP);
+  private shadowCanvas: HTMLCanvasElement | null = null;
 
   constructor(
     private readonly ctx: CanvasRenderingContext2D,
@@ -67,21 +68,47 @@ export class Renderer {
     this.drawLayer(world.particles, alpha);
   }
 
-  /** One flattened ellipse per enemy: cheap grounding, no shadowBlur. */
+  /**
+   * Shadows are a baked bitmap blitted per enemy, not a path fill.
+   *
+   * 400 ellipse fills a frame means 400 path rasterisations; one baked sprite
+   * scaled per enemy is a single texture read each. This measured as the single
+   * biggest render cost in the M2 load test.
+   */
   private drawShadows(world: RenderWorld, alpha: number): void {
+    const shadow = this.ensureShadow();
+    if (shadow === null) return;
     const e = world.enemies;
-    applyWorldTransform(this.ctx);
     const ctx = this.ctx;
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    applyWorldTransform(ctx);
+    const src = shadow.width;
     for (let i = 0; i < e.count; i++) {
       if (e.alive[i] === 0) continue;
       const x = lerpArr(e.prevX, e.x, i, alpha);
       const y = lerpArr(e.prevY, e.y, i, alpha);
-      const r = (e.scale[i] ?? 1) * 13;
-      ctx.beginPath();
-      ctx.ellipse(x, y + r * 0.65, r, r * 0.42, 0, 0, Math.PI * 2);
-      ctx.fill();
+      const w = (e.scale[i] ?? 1) * 30;
+      const h = w * 0.44;
+      ctx.drawImage(shadow, 0, 0, src, src, x - w * 0.5, y + h * 0.2, w, h);
     }
+  }
+
+  /** Radial-gradient blob, baked once. */
+  private ensureShadow(): HTMLCanvasElement | null {
+    if (this.shadowCanvas !== null) return this.shadowCanvas;
+    const px = 48;
+    const c = document.createElement('canvas');
+    c.width = px;
+    c.height = px;
+    const g2 = c.getContext('2d');
+    if (g2 === null) return null;
+    const grad = g2.createRadialGradient(px / 2, px / 2, 0, px / 2, px / 2, px / 2);
+    grad.addColorStop(0, 'rgba(0,0,0,0.38)');
+    grad.addColorStop(0.6, 'rgba(0,0,0,0.22)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g2.fillStyle = grad;
+    g2.fillRect(0, 0, px, px);
+    this.shadowCanvas = c;
+    return c;
   }
 
   private drawEnemiesSorted(e: SpriteLayer, alpha: number): void {

@@ -1,4 +1,5 @@
 import { GameLoop } from './core/loop.ts';
+import { Rng } from './core/rng.ts';
 import { Viewport } from './render/viewport.ts';
 import { Input } from './platform/input.ts';
 import { Lifecycle } from './platform/lifecycle.ts';
@@ -6,8 +7,19 @@ import { DebugOverlay } from './debug/overlay.ts';
 import { Renderer } from './render/renderer.ts';
 import { AssetRegistry } from './render/assetRegistry.ts';
 import { missingSpriteKeys } from './render/drawSprite.ts';
-import { buildDemoWorld, animateDemoWorld } from './debug/demoScene.ts';
-import { FIXED_DT } from './core/constants.ts';
+import { createWorldView, syncWorldView } from './render/worldView.ts';
+import { World } from './entities/world.ts';
+import { AiSystem } from './systems/ai.ts';
+import {
+  integrateEnemies,
+  integrateProjectiles,
+  integrateParticles,
+  integratePickups,
+  integrateDamageNumbers,
+  despawnStrays,
+} from './systems/movement.ts';
+import { stressFill } from './debug/stressSpawner.ts';
+import { ST } from './entities/tower.ts';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui') as HTMLDivElement;
@@ -20,7 +32,11 @@ const input = new Input(viewport);
 const overlay = new DebugOverlay(uiRoot);
 const renderer = new Renderer(ctx, viewport);
 const assets = new AssetRegistry();
-const world = buildDemoWorld();
+
+const world = new World();
+const view = createWorldView(world);
+const ai = new AiSystem();
+const rng = new Rng(0x1205_9128);
 
 function resize(): void {
   viewport.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
@@ -44,11 +60,19 @@ const lifecycle = new Lifecycle({
 });
 lifecycle.attach();
 
-// The atlas is optional by contract: if it is absent the placeholders carry the
-// whole game (SPEC §13.6). Nothing below waits on this promise.
+// The atlas is optional by contract: absent means placeholders (SPEC §13.6).
 void assets.load('game', viewport.dpr);
 
-let elapsed = 0;
+/** M2 load check: keep the arena saturated so the profile is worst case. */
+const STRESS_TARGET = readIntParam('enemies', 400);
+
+function readIntParam(name: string, dflt: number): number {
+  const raw = new URLSearchParams(window.location.search).get(name);
+  const n = raw === null ? NaN : Number.parseInt(raw, 10);
+  return Number.isFinite(n) ? n : dflt;
+}
+stressFill(world, STRESS_TARGET, rng);
+
 const debugLines: string[] = ['', '', ''];
 
 function simulate(dt: number): void {
@@ -57,11 +81,28 @@ function simulate(dt: number): void {
     input.fourFingerTap = false;
     overlay.toggle();
   }
-  elapsed += dt;
-  animateDemoWorld(world, elapsed);
 
-  debugLines[0] = `atlas ${assets.loaded ? 'loaded' : 'absent → placeholders'}`;
-  debugLines[1] = `enemies ${world.enemies.count} · vp ${viewport.cssW}x${viewport.cssH} @${viewport.dpr}`;
+  // Order per SPEC §12.3. Combat systems slot in between these at M3.
+  world.rebuildHash();
+  ai.update(world.enemies, world.hash, world.tower.x, world.tower.y, dt);
+  integrateEnemies(world.enemies, dt);
+  integrateProjectiles(world.projectiles, dt);
+  integratePickups(
+    world.pickups,
+    dt,
+    world.tower.x,
+    world.tower.y,
+    world.tower.stats.get(ST.PickupRadius),
+  );
+  integrateParticles(world.particles, dt);
+  integrateDamageNumbers(world.damageNumbers, dt);
+  despawnStrays(world.enemies, world.tower.x, world.tower.y);
+
+  // Top the arena back up so the load stays constant while profiling.
+  stressFill(world, STRESS_TARGET, rng);
+
+  debugLines[0] = `enemies ${world.enemies.liveCount}/${world.enemies.cap} · grid ${world.hash.size}`;
+  debugLines[1] = `atlas ${assets.loaded ? 'on' : 'placeholders'} · drops ${world.enemies.droppedSpawns}`;
   const missing = missingSpriteKeys();
   debugLines[2] = missing.length === 0 ? 'sprites ok' : `MISSING ${missing.length}`;
   overlay.update(dt, {
@@ -74,7 +115,8 @@ function simulate(dt: number): void {
 }
 
 function render(alpha: number): void {
-  renderer.render(world, alpha);
+  syncWorldView(view, world, 0, 0);
+  renderer.render(view, alpha);
 }
 
 const loop = new GameLoop(simulate, render);
@@ -96,8 +138,8 @@ requestAnimationFrame(frame);
   get atlasLoaded(): boolean {
     return assets.loaded;
   },
-  get simSteps(): number {
-    return Math.round(elapsed / FIXED_DT);
+  get enemies(): number {
+    return world.enemies.liveCount;
   },
   get simMs(): number {
     return Number(loop.simMs.toFixed(2));

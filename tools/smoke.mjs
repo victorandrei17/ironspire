@@ -46,9 +46,14 @@ const port = server.address().port;
 // The pinned browser build in this environment may differ from what the npm
 // package expects; point at the preinstalled binary when it exists.
 const execPath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium';
-const browser = await chromium.launch(
-  existsSync(execPath) ? { executablePath: execPath } : {},
-);
+const launchOpts = existsSync(execPath) ? { executablePath: execPath } : {};
+// Headless Chromium rasterises canvas on the CPU by default, which makes fill
+// rate — not our code — the bottleneck. --use-gl=swiftshader at least keeps the
+// GPU path warm; the numbers to trust are simMs/renderMs, not the raw FPS.
+if (process.argv.includes('--gpu')) {
+  launchOpts.args = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-gpu-rasterization'];
+}
+const browser = await chromium.launch(launchOpts);
 const page = await browser.newPage({
   viewport: { width: 412, height: 915 },
   deviceScaleFactor: dpr,
@@ -67,7 +72,8 @@ if (throttle > 1) {
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle });
 }
 
-await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+const query = process.argv.find((a) => a.startsWith('--q=')) ?? '';
+await page.goto(`http://127.0.0.1:${port}/${query ? '?' + query.slice(4) : ''}`, { waitUntil: 'load' });
 await page.evaluate(() => {
   globalThis.__frames = 0;
   const tick = () => {
@@ -76,7 +82,20 @@ await page.evaluate(() => {
   };
   requestAnimationFrame(tick);
 });
+
+// Sample the JS heap across the run: a rising floor means we are allocating in
+// the hot loop, which is the one thing the pool design exists to prevent.
+const heap = [];
+const sampler = setInterval(async () => {
+  try {
+    const used = await page.evaluate(() => performance.memory?.usedJSHeapSize ?? 0);
+    if (used > 0) heap.push(used);
+  } catch {
+    /* page closed */
+  }
+}, 500);
 await page.waitForTimeout(seconds * 1000);
+clearInterval(sampler);
 const frames = await page.evaluate(() => globalThis.__frames);
 const hooks = await page.evaluate(() => globalThis.ironSpire ?? null);
 
@@ -85,6 +104,17 @@ await browser.close();
 server.close();
 
 console.log(`fps ~ ${(frames / seconds).toFixed(1)} (throttle ${throttle}x, ${seconds}s)`);
+if (heap.length > 2) {
+  const mb = (b) => (b / 1048576).toFixed(2);
+  // Compare the second half's minimum to the first half's: the minimum is the
+  // post-GC floor, and a flat floor is what "no allocation in the loop" means.
+  const half = Math.floor(heap.length / 2);
+  const floorA = Math.min(...heap.slice(0, half));
+  const floorB = Math.min(...heap.slice(half));
+  console.log(
+    `heap floor ${mb(floorA)} -> ${mb(floorB)} MB (peak ${mb(Math.max(...heap))}, ${heap.length} samples)`,
+  );
+}
 if (hooks) console.log('state:', JSON.stringify(hooks));
 if (problems.length) {
   console.log(`\n${problems.length} console problem(s):`);
