@@ -429,7 +429,10 @@ button.dim {
   color: var(--ink);
 }
 
-.modal button {
+/* Only the modal's OWN action buttons get the wide thumb target. Nested ones
+   (talent tabs, cards, toggles) size themselves — a blanket rule here beat
+   every one of them on specificity and blew the tab row off screen. */
+.modal > button {
   min-width: 240px;
   max-width: 90vw;
 }
@@ -573,4 +576,283 @@ button.dim {
   .up-btn {
     min-height: 48px;
   }
+}
+
+/* ===========================================================================
+   Talent tree — one branch at a time, thumb-sized rows (SPEC §10.1).
+   =========================================================================== */
+
+.talents {
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.talent-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.core-count {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.talent-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  width: min(460px, 94vw);
+}
+
+.talent-tab {
+  min-width: 0;
+  padding: 8px 2px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.talent-tab.on {
+  background: var(--panel-2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.talent-list {
+  display: grid;
+  gap: 6px;
+  width: min(460px, 94vw);
+  /* Scrollable because a branch can outgrow a short screen; the rest of the
+     modal stays put so the tabs and footer are always reachable. */
+  overflow-y: auto;
+  flex: 1 1 auto;
+  padding: 2px;
+  touch-action: pan-y;
+}
+
+.talent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  min-height: 58px;
+  padding: 8px 12px;
+  text-align: left;
+  background: var(--panel);
+}
+
+.talent-row.owned {
+  border-color: var(--accent);
+}
+
+.talent-left {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.talent-name {
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.talent-desc {
+  font-size: 0.74rem;
+  color: var(--ink-dim);
+}
+
+.talent-right {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.talent-rank {
+  font-size: 0.68rem;
+  color: var(--ink-dim);
+  font-weight: 700;
+}
+
+.talent-cost {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.talent-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: min(460px, 94vw);
+}
+
+.talent-footer button {
+  min-width: 0;
+}
+
+/* --- Offline return -------------------------------------------------------- */
+
+.offline-away {
+  font-size: 0.95rem;
+  color: var(--ink-dim);
+}
+
+.offline-rewards {
+  display: flex;
+  gap: 20px;
+  margin: 10px 0 4px;
+}
+
+.offline-gold {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--gold);
+}
+
+.offline-cores {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.offline-note {
+  font-size: 0.76rem;
+  color: var(--ink-dim);
+  margin-bottom: 10px;
+}
+
+.menu-cores {
+  margin-top: 14px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--ink-dim);
+  letter-spacing: 0.04em;
+}
+
+/* --- Options --------------------------------------------------------------- */
+
+.option-list {
+  display: grid;
+  gap: 6px;
+  width: min(420px, 92vw);
+}
+
+.option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-height: var(--tap);
+}
+
+.option-label {
+  font-size: 0.84rem;
+  color: var(--ink);
+}
+
+.toggle {
+  min-width: 118px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.toggle.on {
+  background: rgba(127, 212, 168, 0.16);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.scale-wrap {
+  display: flex;
+  gap: 4px;
+}
+
+.scale-btn {
+  min-width: 44px;
+  width: 44px;
+  font-weight: 800;
+}
+
+.scale-btn.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06241a;
+}
+
+.option-save {
+  display: grid;
+  gap: 6px;
+  width: min(420px, 92vw);
+  margin-top: 10px;
+}
+
+.save-code {
+  width: 100%;
+  resize: none;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.option-save .option-row {
+  background: none;
+  border: none;
+  padding: 0;
+  gap: 8px;
+}
+
+.option-save .option-row button {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.option-status {
+  font-size: 0.74rem;
+  color: var(--ink-dim);
+  min-height: 1.1em;
+}
+
+/* Left-handed layout mirrors the side rail so the MAX key falls under the
+   left thumb (SPEC §11.4). */
+body.lefty .upgrades {
+  grid-template-areas:
+    'rail grid'
+    'next next';
+  grid-template-columns: auto 1fr;
+}
+
+body.lefty .hud-purse {
+  flex-direction: row-reverse;
+}
+
+.rebirth {
+  width: min(460px, 94vw);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  background: rgba(168, 111, 240, 0.16);
+  border-color: var(--rar-epic);
+  color: #d9bcff;
+}
+
+.rebirth.confirming {
+  background: var(--rar-epic);
+  border-color: var(--rar-epic);
+  color: #1b0b30;
 }

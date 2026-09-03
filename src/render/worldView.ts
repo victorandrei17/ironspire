@@ -29,6 +29,7 @@ export function createWorldView(world: World): RenderWorld {
     shakeX: 0,
     shakeY: 0,
     showRange: true,
+    flashScale: 1,
   };
 }
 

@@ -28,6 +28,7 @@ export class Renderer {
     const ctx = this.ctx;
     const vp = this.viewport;
     const pixelScale = vp.scale * vp.dpr;
+    this.flashScale = world.flashScale;
 
     // alpha:false means every pixel must be written each frame, but the arena
     // blit covers the middle — so only the letterbox bars need clearing. On a
@@ -160,6 +161,9 @@ export class Renderer {
     return c;
   }
 
+  /** Set from the reduce-flash preference before each frame. */
+  private flashScale = 1;
+
   private drawEnemiesSorted(e: SpriteLayer, alpha: number): void {
     this.ySorter.build(e.y, e.alive, e.count);
     const order = this.ySorter.order;
@@ -175,7 +179,7 @@ export class Renderer {
         e.rot[i] ?? 0,
         e.scale[i] ?? 1,
         e.alpha[i] ?? 1,
-        e.flash[i] ?? 0,
+        (e.flash[i] ?? 0) * this.flashScale,
       );
     }
   }
@@ -203,7 +207,7 @@ export class Renderer {
     // Capped: under a sustained swarm the tower is re-hit every i-frame window,
     // and a fully white silhouette would erase the one thing that must stay
     // readable at all times (SPEC §11.2 rule 3).
-    const flash = t.flash > 0.55 ? 0.55 : t.flash;
+    const flash = Math.min(t.flash, 0.55) * this.flashScale;
     drawSprite(this.ctx, 'tower/base', t.x, t.y, 0, 1, 1, flash);
     drawSprite(this.ctx, 'tower/cannon', t.x, t.y, t.aimRot, 1, 1, flash);
     drawSprite(this.ctx, 'tower/core', t.x, t.y, 0, 1, 1, 0);

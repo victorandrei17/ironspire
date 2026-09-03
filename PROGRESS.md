@@ -9,12 +9,12 @@
 
 | | |
 |---|---|
-| **Milestone atual** | M5 — Meta, save e idle |
+| **Milestone atual** | M6 — Conteúdo e balanceamento |
 | **Última atualização** | 2026-09-03 |
 | **Build roda?** | ✅ `npm run build` limpo |
 | **FPS medido (throttle 6×, wave 20)** | — (sem waves ainda) |
-| **Cobertura `core/` + `data/`** | 192 testes verdes |
-| **Bundle gzip** | 28,0 KB / meta 180 KB |
+| **Cobertura `core/` + `data/`** | 238 testes verdes |
+| **Bundle gzip** | 37,9 KB / meta 180 KB |
 | **Testado em celular real** | ⬜ (validado headless em 412×915 @2x) |
 
 ### Legenda
@@ -31,7 +31,7 @@
 | **M2** | Pools + colisão | 400 inimigos andando a 60 FPS, spatial hash testado | ✅ |
 | **M3** | Combate | Torre atira, acerta, mata, drops aparecem | ✅ |
 | **M4** | **VERTICAL SLICE** | Run completa: waves → upgrades → cartas → morte → resultado | ✅ |
-| **M5** | Meta + save | Núcleos, talentos, offline, save com migração | ⬜ |
+| **M5** | Meta + save | Núcleos, talentos, offline, save com migração | ✅ |
 | **M6** | Conteúdo | 9 inimigos, 3 bosses, elites, 18 cartas, balanceamento simulado | ⬜ |
 | **M7** | Polimento | VFX, áudio, feedback, acessibilidade, degradação automática | ⬜ |
 | **M8** | Mobile/loja | APK/IPA instalável, PWA, monetização, fichas de loja | ⬜ |
@@ -338,26 +338,58 @@
 
 ## M5 — Meta-progressão, save e idle
 
-- [ ] `src/save/schema.ts`: `SaveV1` (campos de SPEC §15.2, começando em v1)
-- [ ] `src/save/migrations.ts`: cadeia `migrate()` + teste com save falso de versão antiga
-- [ ] `src/platform/storage.ts`: localStorage ↔ Capacitor Preferences, **slot duplo a/b**
-- [ ] `src/save/save.ts`: autosave debounced 10 s, em fim de wave, pause e `visibilitychange`
-- [ ] Assinatura `sig` + modo somente-local quando inválida (nunca apagar o save)
-- [ ] Exportar/Importar save em base64 nas opções
-- [ ] `src/data/talents.ts`: 4 ramos × ~10 nós, custo `base * 1.28^rank`
-- [ ] `src/ui/talentTree.ts`: navegável com o polegar, respec grátis
-- [ ] Cálculo e concessão de Núcleos no fim da run
-- [ ] Ganho offline: cálculo, cap de 8 h, tela de retorno, salvaguarda de relógio para trás
-- [ ] Retomada de run interrompida (`RunSnapshot`)
-- [ ] Prestige/Rebirth: gate na wave 100, cálculo de Éter, ramos desbloqueáveis
-- [ ] **Teste:** relógio para trás → 0 ganho offline, flag registrada
-- [ ] **Teste:** corromper `save_a` → carrega `save_b`
-- [ ] **Verificação:** matar o app no meio da run → reabrir → estado preservado
+- [x] `src/save/schema.ts`: `SaveV1` (campos de SPEC §15.2, começando em v1)
+- [x] `src/save/migrations.ts`: cadeia `migrate()` + teste com save falso de versão antiga
+- [x] `src/platform/storage.ts`: localStorage ↔ Capacitor Preferences, **slot duplo a/b**
+- [x] `src/save/save.ts`: autosave debounced 10 s, em fim de wave, pause e `visibilitychange`
+- [x] Assinatura `sig` + modo somente-local quando inválida (nunca apagar o save)
+- [x] Exportar/Importar save em base64 nas opções
+- [x] `src/data/talents.ts`: 4 ramos × ~10 nós, custo `base * 1.28^rank`
+- [x] `src/ui/talentTree.ts`: navegável com o polegar, respec grátis
+- [x] Cálculo e concessão de Núcleos no fim da run
+- [x] Ganho offline: cálculo, cap de 8 h, tela de retorno, salvaguarda de relógio para trás
+- [x] Retomada de run interrompida (`RunSnapshot`)
+- [~] Prestige/Rebirth: gate na wave 100, cálculo de Éter, ramos desbloqueáveis
+      _(gate, cálculo, multiplicador global e botão com confirmação prontos;
+      os ramos EXTRAS desbloqueados por Éter são conteúdo e ficam para o M6)_
+- [x] **Teste:** relógio para trás → 0 ganho offline, flag registrada
+- [x] **Teste:** corromper `save_a` → carrega `save_b`
+- [x] **Verificação:** matar o app no meio da run → reabrir → estado preservado
 
-**Critério de aceite:** fechar o app por 2 h e voltar entrega recompensa correta; talentos afetam a run seguinte.
+**Critério de aceite:** fechar o app por 2 h e voltar entrega recompensa correta; talentos afetam a run seguinte. ✅ — cálculo offline coberto por teste (2 h, cap de 8 h, cap por talento, relógio para trás); talentos entram na camada meta antes do `startRun`.
 
 **Notas:**
 ```
+- BUG REAL, achado pelo teste ponta a ponta: depois de um reload o save que nós
+  mesmos escrevemos falhava na própria assinatura (localOnly=1). Causa: um save
+  gravado no meio de uma run ganha a chave `run` DEPOIS de `sig` (ordem de
+  inserção), enquanto o carregador a reconstrói ANTES de `sig`. Mesmos dados,
+  bytes diferentes, hash diferente. Corrigido com stableStringify (chaves
+  ordenadas). Tem teste de regressão que reproduz a ordem exata.
+- BUG DE CSS: `.modal button { min-width: 240px }` vencia em especificidade toda
+  regra interna e estourava a linha de abas dos talentos (só 2 das 4 apareciam).
+  Virou `.modal > button` — só os botões de ação da própria modal.
+- Slot duplo A/B com cursor gravado POR ÚLTIMO: se o processo morre antes de
+  gravar o cursor, o slot antigo continua sendo o lido. Testado corrompendo o
+  slot mais novo e conferindo o fallback.
+- Assinatura NUNCA apaga save. Save adulterado carrega normalmente e só liga a
+  flag localOnly. É hash client-side: não impede cheat determinado, e apagar o
+  progresso de alguém por causa disso seria indefensável.
+- migrate() nunca lança e nunca devolve null: entrada quebrada vira save novo.
+  fillDefaults também rejeita tipos errados campo a campo, então um save editado
+  à mão não injeta string onde o gameplay espera número.
+- RunSnapshot NÃO serializa a arena. Inimigos em voo não valem serialização — a
+  wave reinicia a partir do próprio seed, que é exatamente o que o spawner
+  determinístico torna possível.
+- Talentos escrevem SÓ na camada meta. Respec é limpar a camada e reaplicar,
+  e por isso não tem como corromper bônus de run ou de carta.
+- Talentos de custo/redução são multiplicativos por rank (0.97^rank): dez ranks
+  se aproximam de um limite em vez de chegar a upgrade grátis ou imunidade.
+- Opções só têm controle que FAZ algo hoje. Slider de volume que não move nada
+  até o M7 ensina o jogador que a tela de opções mente.
+- VERIFICADO headless: run automática → morte → reload → Núcleos e melhor onda
+  persistem, localOnly=0. E: run em andamento → reload → CONTINUAR → volta em
+  nível 3, 64 de ouro, 28 abates (wave reinicia do começo, por design).
 ```
 
 ---

@@ -123,6 +123,30 @@ clearInterval(sampler);
 const frames = await page.evaluate(() => globalThis.__frames);
 const hooks = await page.evaluate(() => globalThis.ironSpire?.state ?? null);
 
+// --reload proves persistence: reboot the page and read the state back.
+let reloaded = null;
+if (process.argv.includes('--reload')) {
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForTimeout(1200);
+  reloaded = await page.evaluate(() => globalThis.ironSpire?.state ?? null);
+}
+// --resume clicks CONTINUAR after the reload, proving the snapshot restores.
+if (process.argv.includes('--resume')) {
+  await page.evaluate(() => {
+    for (const b of document.querySelectorAll('.menu button')) {
+      if (b.textContent?.includes('CONTINUAR')) {
+        b.click();
+        return;
+      }
+    }
+  });
+  await page.waitForTimeout(1500);
+  reloaded = await page.evaluate(() => globalThis.ironSpire?.state ?? null);
+}
+if (process.argv.includes('--talents')) {
+  await page.evaluate(() => globalThis.ironSpire?.talents?.());
+  await page.waitForTimeout(300);
+}
 await page.screenshot({ path: outPng });
 await browser.close();
 server.close();
@@ -140,6 +164,7 @@ if (heap.length > 2) {
   );
 }
 if (hooks) console.log('state:', JSON.stringify(hooks));
+if (reloaded) console.log('after reload:', JSON.stringify(reloaded));
 if (problems.length) {
   console.log(`\n${problems.length} console problem(s):`);
   for (const p of problems.slice(0, 20)) console.log('  ' + p);

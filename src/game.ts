@@ -27,7 +27,6 @@ import { applyUpgrades } from './systems/upgrades.ts';
 import {
   updateProgression,
   xpToNext,
-  coresForRun,
   LevelUpEffect,
   healToMatchNewMax,
 } from './systems/progression.ts';
@@ -50,7 +49,23 @@ import { Input } from './platform/input.ts';
 import { Lifecycle } from './platform/lifecycle.ts';
 import { DebugOverlay } from './debug/overlay.ts';
 
+import { SaveManager } from './save/save.ts';
+import type { RunSnapshot } from './save/schema.ts';
+import {
+  applyTalents,
+  computeOffline,
+  coresForRun,
+  recordRunRates,
+  canRebirth,
+  rebirth,
+  type OfflineReward,
+} from './systems/meta.ts';
+
 import { Hud } from './ui/hud.ts';
+import { TalentTree } from './ui/talentTree.ts';
+import { OfflineScreen } from './ui/offlineScreen.ts';
+import { OptionsScreen, applyUiScale } from './ui/options.ts';
+import { setHapticsEnabled } from './platform/haptics.ts';
 import { UpgradePanel } from './ui/upgradePanel.ts';
 import { CardPicker } from './ui/cardPicker.ts';
 import { MainMenu, PauseScreen, ResultScreen, TopBar, type RunResult } from './ui/menus.ts';
@@ -94,6 +109,14 @@ export class Game {
   private readonly pause: PauseScreen;
   private readonly result: ResultScreen;
   private readonly topBar: TopBar;
+  private readonly talentTree: TalentTree;
+  private readonly offlineScreen: OfflineScreen;
+  private readonly options: OptionsScreen;
+  /** Set while the options screen is open, so it can return to where it came from. */
+  private optionsReturn: Scene = SCENE.Menu;
+
+  private readonly saves = new SaveManager();
+  private pendingOffline: OfflineReward | null = null;
 
   private readonly debugLines: string[] = ['', '', '', ''];
 
@@ -110,8 +133,12 @@ export class Game {
     this.camera = new CameraSystem(this.rng);
 
     this.hud = new Hud(uiRoot, () => this.cyclePolicy());
-    this.panel = new UpgradePanel(uiRoot, this.run, this.world.tower.stats, () =>
-      this.waves.callEarly(this.world, this.run, this.spawner),
+    this.panel = new UpgradePanel(
+      uiRoot,
+      this.run,
+      this.world.tower.stats,
+      () => this.world.tower.mods.upgradeCostMult,
+      () => this.waves.callEarly(this.world, this.run, this.spawner),
     );
     this.picker = new CardPicker(
       uiRoot,
@@ -121,12 +148,30 @@ export class Game {
     this.menu = new MainMenu(
       uiRoot,
       () => this.startRun(),
-      () => undefined,
+      () => this.setScene(SCENE.Talents),
+      () => this.resumeRun(),
+    );
+    this.talentTree = new TalentTree(
+      uiRoot,
+      () => this.saves.save,
+      () => this.onTalentsChanged(),
+      () => this.doRebirth(),
+      () => this.setScene(SCENE.Menu),
+    );
+    this.offlineScreen = new OfflineScreen(uiRoot, () => this.claimOffline());
+    this.options = new OptionsScreen(
+      uiRoot,
+      () => this.saves.save.prefs,
+      () => this.onPrefsChanged(),
+      () => this.saves.export(),
+      (code) => this.saves.import(code),
+      () => this.closeOptions(),
     );
     this.pause = new PauseScreen(
       uiRoot,
       () => this.setScene(SCENE.Run),
       () => this.endRun(false),
+      () => this.openOptions(),
     );
     this.result = new ResultScreen(
       uiRoot,
@@ -142,7 +187,16 @@ export class Game {
 
     bus.on(EV.WaveStart, (wave, pattern) => this.hud.banner(pattern, wave));
     bus.on(EV.TowerDied, () => this.endRun(true));
+    // A finished wave is the natural autosave point: cheap, and it bounds how
+    // much progress a kill -9 can cost (SPEC §15.3).
+    bus.on(EV.WaveEnd, () => {
+      this.snapshotRun();
+      this.saves.flush();
+    });
 
+    this.saves.load();
+    this.onTalentsChanged();
+    this.onPrefsChanged();
     this.setScene(SCENE.Menu);
   }
 
@@ -159,9 +213,13 @@ export class Game {
       onPause: () => {
         this.input.clearActive();
         if (this.scene === SCENE.Run) this.setScene(SCENE.Pause);
+        this.snapshotRun();
+        this.saves.flush();
       },
       onResume: () => this.loop.reset(),
     }).attach();
+
+    this.showOfflineOrMenu();
 
     // The atlas is optional by contract: absent means placeholders (SPEC §13.6).
     void this.assets.load('game', this.viewport.dpr);
@@ -187,6 +245,15 @@ export class Game {
     this.topBar.setVisible(inRun);
     this.picker.setVisible(next === SCENE.CardPick);
     this.menu.setVisible(next === SCENE.Menu);
+    if (next === SCENE.Menu) {
+      this.menu.render(
+        this.saves.save.meta.nucleos,
+        this.saves.save.stats.bestWaveEver,
+        this.saves.save.run !== undefined,
+      );
+    }
+    this.talentTree.setVisible(next === SCENE.Talents);
+    this.options.setVisible(next === SCENE.Options);
     this.pause.setVisible(next === SCENE.Pause);
     this.result.setVisible(next === SCENE.Result);
     // Pause and the card screen freeze the simulation entirely; the level-up
@@ -197,12 +264,15 @@ export class Game {
 
   private startRun(): void {
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
+    const mods = this.world.tower.mods;
     this.rng.state = seed;
     this.world.reset();
-    this.run.reset(seed, xpToNext(1), 1);
+    this.run.reset(seed, xpToNext(1), 1 + mods.rerolls);
+    this.run.gold = mods.startGold;
     applyUpgrades(this.run, this.world.tower.stats);
     applyCards(this.run, this.world.tower.stats);
     this.world.tower.hp = this.world.tower.hpMax;
+    this.saves.clearRunSnapshot();
     this.spawner.reset();
     this.waves.reset();
     this.status.reset();
@@ -217,17 +287,157 @@ export class Game {
     if (this.scene === SCENE.Result) return;
     this.run.over = true;
     this.run.waveMax = Math.max(this.run.waveMax, this.run.wave);
+
+    const save = this.saves.save;
+    const cores = coresForRun(this.run.waveMax, this.world.tower.mods, save.meta.ether);
+    // Retreat pays the same as death on purpose (SPEC §2.3).
+    save.meta.nucleos += cores;
+    save.stats.totalRuns++;
+    save.stats.totalKills += this.run.kills;
+    save.stats.playTimeSec += this.run.time;
+    save.stats.bestWave = Math.max(save.stats.bestWave, this.run.waveMax);
+    save.stats.bestWaveEver = Math.max(save.stats.bestWaveEver, this.run.waveMax);
+    recordRunRates(save, cores, this.run.goldEarned, this.run.time);
+    this.saves.clearRunSnapshot();
+    this.saves.flush();
+    this.onTalentsChanged();
+
     const res: RunResult = {
       wave: this.run.waveMax,
       kills: this.run.kills,
       timeSec: this.run.time,
       gold: this.run.goldEarned,
-      cores: coresForRun(this.run.waveMax),
+      cores,
       died,
     };
     this.result.render(res);
     this.setScene(SCENE.Result);
     bus.emit(EV.RunEnded, res.wave, res.cores, died ? 1 : 0);
+  }
+
+  private openOptions(): void {
+    this.optionsReturn = this.scene === SCENE.Pause ? SCENE.Pause : SCENE.Menu;
+    this.setScene(SCENE.Options);
+  }
+
+  private closeOptions(): void {
+    this.setScene(this.optionsReturn);
+  }
+
+  /** Pushes preference changes into the systems that read them. */
+  private onPrefsChanged(): void {
+    const prefs = this.saves.save.prefs;
+    setHapticsEnabled(prefs.haptics);
+    // Reduce-shake scales the whole effect rather than disabling it, so the
+    // feedback survives for players who only need it toned down (SPEC §11.4).
+    this.camera.intensity = prefs.reduceShake ? 0.25 : 1;
+    applyUiScale(prefs.uiScale);
+    this.view.flashScale = prefs.reduceFlash ? 0.3 : 1;
+    document.body.classList.toggle('lefty', prefs.lefty);
+    this.saves.touch();
+  }
+
+  /** Reapplies talents to the meta stat layer, then refreshes anything showing them. */
+  private onTalentsChanged(): void {
+    applyTalents(this.saves.save, this.world.tower.stats, this.world.tower.mods);
+    this.world.tower.reviveAvailable = this.world.tower.mods.reviveOnce;
+    this.saves.touch();
+  }
+
+  /** Shows the welcome-back screen when the reward is worth a modal. */
+  private showOfflineOrMenu(): void {
+    const reward = computeOffline(this.saves.save, Date.now(), this.world.tower.mods);
+    if (reward.clockAnomaly) {
+      this.saves.save.idle.clockAnomalies++;
+      this.saves.touch();
+      return;
+    }
+    if (reward.gold < 1 && reward.nucleos < 1) return;
+    this.pendingOffline = reward;
+    this.offlineScreen.render(reward);
+    this.offlineScreen.setVisible(true);
+  }
+
+  private claimOffline(): void {
+    const reward = this.pendingOffline;
+    this.pendingOffline = null;
+    this.offlineScreen.setVisible(false);
+    if (reward === null) return;
+    this.saves.save.meta.nucleos += reward.nucleos;
+    this.saves.flush();
+  }
+
+  /** Freezes the current run so closing the app does not throw it away. */
+  private snapshotRun(): void {
+    if (this.scene !== SCENE.Run && this.scene !== SCENE.Pause) return;
+    if (this.run.over || this.run.wave <= 0) return;
+    const snapshot: RunSnapshot = {
+      seed: this.run.seed,
+      wave: this.run.wave,
+      time: this.run.time,
+      gold: this.run.gold,
+      goldEarned: this.run.goldEarned,
+      xp: this.run.xp,
+      xpToNext: this.run.xpToNext,
+      level: this.run.level,
+      kills: this.run.kills,
+      policy: this.run.policy,
+      pendingCards: this.run.pendingCards,
+      rerollsLeft: this.run.rerollsLeft,
+      waveMax: this.run.waveMax,
+      upgradeLevels: Array.from(this.run.upgradeLevels),
+      cardLevels: Array.from(this.run.cardLevels),
+      towerHp: this.world.tower.hp,
+    };
+    this.saves.storeRunSnapshot(snapshot);
+  }
+
+  /**
+   * Resumes a run frozen by a previous session.
+   *
+   * The arena itself is NOT restored — enemies mid-flight are not worth
+   * serialising. The wave restarts from its own seed, which is exactly what
+   * the deterministic spawner makes possible.
+   */
+  resumeRun(): boolean {
+    const snap = this.saves.save.run;
+    if (snap === undefined) return false;
+    this.world.reset();
+    this.run.reset(snap.seed, snap.xpToNext, snap.rerollsLeft);
+    this.run.wave = Math.max(0, snap.wave - 1);
+    this.run.time = snap.time;
+    this.run.gold = snap.gold;
+    this.run.goldEarned = snap.goldEarned;
+    this.run.xp = snap.xp;
+    this.run.level = snap.level;
+    this.run.kills = snap.kills;
+    this.run.waveMax = snap.waveMax;
+    this.run.pendingCards = snap.pendingCards;
+    for (let i = 0; i < this.run.upgradeLevels.length; i++) {
+      this.run.upgradeLevels[i] = snap.upgradeLevels[i] ?? 0;
+    }
+    for (let i = 0; i < this.run.cardLevels.length; i++) {
+      this.run.cardLevels[i] = snap.cardLevels[i] ?? 0;
+    }
+    applyUpgrades(this.run, this.world.tower.stats);
+    applyCards(this.run, this.world.tower.stats);
+    this.world.tower.hp = Math.min(snap.towerHp, this.world.tower.hpMax);
+    this.rng.state = snap.seed;
+    this.spawner.reset();
+    this.waves.reset();
+    this.status.reset();
+    this.camera.reset();
+    this.setScene(SCENE.Run);
+    return true;
+  }
+
+  /** Rebirth is player-initiated and irreversible, so it stays explicit. */
+  doRebirth(): number {
+    if (!canRebirth(this.saves.save)) return 0;
+    const gained = rebirth(this.saves.save);
+    this.onTalentsChanged();
+    this.saves.flush();
+    return gained;
   }
 
   private cyclePolicy(): void {
@@ -312,6 +522,8 @@ export class Game {
 
     this.run.waveMax = Math.max(this.run.waveMax, this.run.wave);
 
+    this.saves.update(dt);
+
     // UI last: it reads the settled state of this tick.
     this.panel.update(dt);
     this.panel.setNextWave(this.waves.canCallEarly, BAL.wave.earlyCallGoldBonus);
@@ -358,12 +570,20 @@ export class Game {
       kills: this.run.kills,
       enemies: this.world.enemies.liveCount,
       atlasLoaded: this.assets.loaded ? 1 : 0,
+      cores: this.saves.save.meta.nucleos,
+      bestWave: this.saves.save.stats.bestWaveEver,
+      localOnly: this.saves.localOnly ? 1 : 0,
+      hasSnapshot: this.saves.save.run === undefined ? 0 : 1,
       missingSprites: missingSpriteKeys(),
     };
   }
 
-  /** Test hook: drive the machine without touching the DOM. */
+  /** Test hooks: drive the machine without touching the DOM. */
   debugStartRun(): void {
     this.startRun();
+  }
+
+  debugOpenTalents(): void {
+    this.setScene(SCENE.Talents);
   }
 }

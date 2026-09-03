@@ -39,6 +39,8 @@ export class UpgradePanel {
     parent: HTMLElement,
     private readonly run: RunState,
     private readonly stats: TowerStats,
+    /** Talent-discounted price multiplier, read fresh on every refresh. */
+    private readonly costMult: () => number,
     private readonly onNextWave: () => void,
   ) {
     this.root = el('div', 'upgrades', parent);
@@ -97,9 +99,10 @@ export class UpgradePanel {
   }
 
   private buy(idx: number): void {
+    const mult = this.costMult();
     const bought = this.maxMode
-      ? buyMax(this.run, this.stats, idx) > 0
-      : buyUpgrade(this.run, this.stats, idx);
+      ? buyMax(this.run, this.stats, idx, mult) > 0
+      : buyUpgrade(this.run, this.stats, idx, mult);
     if (bought) haptic(HAPTIC.Light);
   }
 
@@ -119,6 +122,7 @@ export class UpgradePanel {
   }
 
   private refresh(): void {
+    const mult = this.costMult();
     for (let i = 0; i < this.buttons.length; i++) {
       const b = this.buttons[i];
       const levelEl = this.levels[i];
@@ -134,11 +138,11 @@ export class UpgradePanel {
         continue;
       }
       if (this.maxMode) {
-        const { levels, cost } = maxAffordable(this.run, i);
-        setText(costEl, levels > 0 ? `${levels}× ${fmt(cost)}` : fmt(costOf(this.run, i)));
+        const { levels, cost } = maxAffordable(this.run, i, mult);
+        setText(costEl, levels > 0 ? `${levels}× ${fmt(cost)}` : fmt(costOf(this.run, i, mult)));
         setClass(b, 'dim', levels === 0);
       } else {
-        const cost = costOf(this.run, i);
+        const cost = costOf(this.run, i, mult);
         setText(costEl, fmt(cost));
         setClass(b, 'dim', this.run.gold < cost);
       }

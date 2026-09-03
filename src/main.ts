@@ -20,4 +20,7 @@ game.start();
   play(): void {
     game.debugStartRun();
   },
+  talents(): void {
+    game.debugOpenTalents();
+  },
 };

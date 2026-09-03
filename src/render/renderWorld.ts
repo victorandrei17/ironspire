@@ -71,6 +71,8 @@ export type RenderWorld = {
   shakeY: number;
   /** Draw the targeting range ring — a debug/UX affordance, toggleable. */
   showRange: boolean;
+  /** Global multiplier on every hit flash (accessibility, SPEC §11.4). */
+  flashScale: number;
 };
 
 /** Allocates an empty layer of `cap` slots. Called at boot, never in a frame. */

@@ -1,6 +1,7 @@
 import { BAL } from '../data/balance.ts';
 import { clamp } from '../core/math.ts';
 import { ST, TF, STAT_COUNT } from '../data/stats.ts';
+import { makeModifiers, type MetaModifiers } from '../core/metaModifiers.ts';
 
 // Re-exported so gameplay code has one obvious import for tower concepts.
 export { ST, TF, STAT_COUNT };
@@ -152,6 +153,15 @@ export class Tower {
 
   readonly stats = new TowerStats();
 
+  /**
+   * Talent-granted modifiers, resolved once at run start. Kept on the tower
+   * because that is what every consumer already has a reference to.
+   */
+  readonly mods: MetaModifiers = makeModifiers();
+
+  /** Spent by the Fortress revive talent; one per run. */
+  reviveAvailable = false;
+
   reset(x: number, y: number): void {
     this.x = x;
     this.y = y;
@@ -165,6 +175,7 @@ export class Tower {
     this.shieldHp = 0;
     this.targetHandle = -1;
     this.shotCount = 0;
+    this.reviveAvailable = this.mods.reviveOnce;
   }
 
   get hpMax(): number {

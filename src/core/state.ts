@@ -15,6 +15,7 @@ export const SCENE = {
   Pause: 5,
   Result: 6,
   Talents: 7,
+  Options: 8,
 } as const;
 
 export type Scene = (typeof SCENE)[keyof typeof SCENE];

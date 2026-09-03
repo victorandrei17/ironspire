@@ -16,6 +16,9 @@ import {
 } from '../entities/damageNumberPool.ts';
 import { bus, EV } from '../core/events.ts';
 
+/** Breathing room after a revive so the same swarm cannot instantly re-kill. */
+const REVIVE_IFRAMES = 1.5;
+
 /**
  * Damage resolution — the ONE place HP changes (SPEC §12.3 step 11).
  *
@@ -42,6 +45,8 @@ export function resolveDamage(world: World, run: RunState, rng: Rng, dt: number)
       if (i < 0) continue;
 
       amount = applyEnemyReduction(e, i, flags, q.srcX[k] ?? 0, q.srcY[k] ?? 0, amount);
+      // Talent: extra damage against bosses (SPEC §10.1, War branch).
+      if ((e.flags[i] ?? 0) & EF.Boss) amount *= 1 + tower.mods.bossDamagePct;
 
       let crit = (flags & DMG_FLAG.PreCrit) !== 0;
       if (!crit && flags & DMG_FLAG.CanCrit) crit = rng.chance(stats.get(ST.CritChance));
@@ -107,7 +112,9 @@ function applyTowerDamage(
   const stats = tower.stats;
   if (tower.iframe > 0 || !tower.alive) return;
 
-  let amount = raw;
+  // Talent: flat damage reduction, applied before the shield so the shield
+  // absorbs the number the player actually takes.
+  let amount = raw * (1 - tower.mods.damageReductionPct);
   if (tower.shieldHp > 0) {
     const absorbed = Math.min(tower.shieldHp, amount);
     tower.shieldHp -= absorbed;
@@ -116,7 +123,7 @@ function applyTowerDamage(
   }
 
   tower.hp -= amount;
-  tower.iframe = BAL.tower.iframes;
+  tower.iframe = BAL.tower.iframes + tower.mods.iframeBonus;
   tower.flash = 1;
   world.damageNumbers.spawn(tower.x, tower.y - 44, amount, DIGIT_DAMAGE, 0.95);
   bus.emit(EV.TowerDamaged, amount, tower.hp, tower.hpMax);
@@ -129,6 +136,14 @@ function applyTowerDamage(
   }
 
   if (tower.hp <= 0) {
+    // Talent: one revive per run, at 40% health, before the run is called.
+    if (tower.reviveAvailable) {
+      tower.reviveAvailable = false;
+      tower.hp = tower.hpMax * 0.4;
+      tower.iframe = REVIVE_IFRAMES;
+      bus.emit(EV.Shake, 1);
+      return;
+    }
     tower.hp = 0;
     run.over = true;
     bus.emit(EV.TowerDied);

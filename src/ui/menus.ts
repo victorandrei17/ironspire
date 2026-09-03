@@ -12,7 +12,15 @@ import { haptic, HAPTIC } from '../platform/haptics.ts';
 export class MainMenu {
   readonly root: HTMLDivElement;
 
-  constructor(parent: HTMLElement, onPlay: () => void, onOptions: () => void) {
+  private readonly resumeBtn: HTMLButtonElement;
+  private readonly coreLabel: HTMLDivElement;
+
+  constructor(
+    parent: HTMLElement,
+    onPlay: () => void,
+    onTalents: () => void,
+    onResume: () => void,
+  ) {
     this.root = el('div', 'modal menu', parent);
     this.root.hidden = true;
     const title = el('div', 'game-title', this.root);
@@ -20,16 +28,35 @@ export class MainMenu {
     const sub = el('div', 'game-sub', this.root);
     sub.textContent = 'Fique. Fique mais forte que elas.';
 
+    // Resume comes first when it exists: a player who closed mid-run wants
+    // their run back, not a fresh one.
+    this.resumeBtn = button('CONTINUAR RUN', 'primary interactive', this.root);
+    this.resumeBtn.hidden = true;
+    this.resumeBtn.addEventListener('click', () => {
+      haptic(HAPTIC.Medium);
+      onResume();
+    });
+
     const play = button('JOGAR', 'primary interactive', this.root);
     play.addEventListener('click', () => {
       haptic(HAPTIC.Medium);
       onPlay();
     });
-    const opts = button('OPÇÕES', 'interactive', this.root);
-    opts.addEventListener('click', () => {
+    const talents = button('TALENTOS', 'interactive', this.root);
+    talents.addEventListener('click', () => {
       haptic(HAPTIC.Light);
-      onOptions();
+      onTalents();
     });
+
+    this.coreLabel = el('div', 'menu-cores', this.root);
+  }
+
+  render(cores: number, bestWave: number, canResume: boolean): void {
+    show(this.resumeBtn, canResume);
+    setText(
+      this.coreLabel,
+      bestWave > 0 ? `◈ ${fmt(cores)}  ·  melhor onda ${bestWave}` : `◈ ${fmt(cores)}`,
+    );
   }
 
   setVisible(v: boolean): void {
@@ -40,7 +67,12 @@ export class MainMenu {
 export class PauseScreen {
   readonly root: HTMLDivElement;
 
-  constructor(parent: HTMLElement, onResume: () => void, onQuit: () => void) {
+  constructor(
+    parent: HTMLElement,
+    onResume: () => void,
+    onQuit: () => void,
+    onOptions: () => void,
+  ) {
     this.root = el('div', 'modal pause', parent);
     this.root.hidden = true;
     const title = el('div', 'modal-title', this.root);
@@ -54,6 +86,11 @@ export class PauseScreen {
     // Retreat pays full reward on purpose: punishing the exit makes players
     // leave the app running in a pocket, which burns battery and metrics
     // (SPEC §2.3).
+    const opts = button('OPÇÕES', 'interactive', this.root);
+    opts.addEventListener('click', () => {
+      haptic(HAPTIC.Light);
+      onOptions();
+    });
     const quit = button('RETIRAR-SE (100% da recompensa)', 'interactive', this.root);
     quit.addEventListener('click', () => {
       haptic(HAPTIC.Medium);
