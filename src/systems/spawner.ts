@@ -51,6 +51,7 @@ export class Spawner {
   private scheduled = 0;
   private cursor = 0;
   private elapsed = 0;
+  private scheduleEnd = 0;
 
   // Wave-wide scalars, resolved once in beginWave.
   private hp = 0;
@@ -164,6 +165,14 @@ export class Spawner {
       world.splitTemplate.gold = gold * swarmDef.goldMul;
     }
 
+    // The schedule is the wave's authored length: the UI's early-call timer
+    // runs against it, so it is measured once here rather than scanned per
+    // frame. Times are not strictly sorted (the boss is moved to the front),
+    // so this takes the max rather than the last entry.
+    let end = 0;
+    for (let i = 0; i < this.scheduled; i++) end = Math.max(end, this.schedTime[i] ?? 0);
+    this.scheduleEnd = end;
+
     this.hp = hp;
     this.speedMul = speedMul;
     this.dmgMul = dmgMul;
@@ -183,6 +192,16 @@ export class Spawner {
 
   get allReleased(): boolean {
     return this.cursor >= this.scheduled;
+  }
+
+  /** Seconds from the wave's start to its last scheduled spawn. */
+  get scheduleDuration(): number {
+    return this.scheduleEnd;
+  }
+
+  /** Seconds since the wave started. */
+  get elapsedSec(): number {
+    return this.elapsed;
   }
 
   private spawnOne(world: World, k: number): void {
@@ -269,6 +288,7 @@ export class Spawner {
     this.scheduled = 0;
     this.cursor = 0;
     this.elapsed = 0;
+    this.scheduleEnd = 0;
     this.released = 0;
     this.skipped = 0;
     this.bossIdx = -1;

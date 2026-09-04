@@ -1,4 +1,4 @@
-import { el, setText, setClass, show } from './dom.ts';
+import { el, setText, setVar, setClass, show } from './dom.ts';
 import type { RunState } from '../core/state.ts';
 import { ST, type TowerStats } from '../entities/tower.ts';
 import { UPGRADES } from '../data/upgrades.ts';
@@ -28,6 +28,9 @@ export class UpgradePanel {
   private readonly costs: HTMLSpanElement[] = [];
   private readonly maxBtn: HTMLButtonElement;
   private readonly nextWaveBtn: HTMLButtonElement;
+  private readonly nextWaveFill: HTMLDivElement;
+  private readonly nextWaveLabel: HTMLSpanElement;
+  private readonly nextWaveBonus: HTMLSpanElement;
 
   /** Index being held, or -1. */
   private holding = -1;
@@ -35,6 +38,8 @@ export class UpgradePanel {
   private repeatT = 0;
   /** When true, a press buys as many levels as the gold allows. */
   private maxMode = false;
+  /** Mirrors the wave system: a press before the timer fills does nothing. */
+  private nextWaveReady = false;
 
   constructor(
     parent: HTMLElement,
@@ -71,7 +76,17 @@ export class UpgradePanel {
       this.bindHold(b, i);
     }
 
+    // The rail carries both column buttons: the wave call sits above MAX, in a
+    // fixed slot. It used to be a full-width row that appeared and disappeared,
+    // which shoved the whole grid up and down under the player's thumb.
     const rail = el('div', 'upgrade-rail', this.root);
+
+    this.nextWaveBtn = el('button', 'next-wave interactive', rail);
+    this.nextWaveBtn.type = 'button';
+    this.nextWaveFill = el('div', 'next-fill', this.nextWaveBtn);
+    this.nextWaveLabel = el('span', 'next-label', this.nextWaveBtn);
+    this.nextWaveBonus = el('span', 'next-bonus', this.nextWaveBtn);
+
     this.maxBtn = el('button', 'max-btn interactive', rail);
     this.maxBtn.type = 'button';
     this.maxBtn.textContent = 'MAX';
@@ -81,9 +96,8 @@ export class UpgradePanel {
       haptic(HAPTIC.Light);
     });
 
-    this.nextWaveBtn = el('button', 'next-wave interactive', this.root);
-    this.nextWaveBtn.type = 'button';
     this.nextWaveBtn.addEventListener('click', () => {
+      if (!this.nextWaveReady) return;
       haptic(HAPTIC.Medium);
       this.onNextWave();
     });
@@ -162,10 +176,17 @@ export class UpgradePanel {
     }
   }
 
-  /** Shows or hides the early-call button and its bonus label. */
-  setNextWave(available: boolean, bonusPct: number): void {
-    show(this.nextWaveBtn, available);
-    if (available) setText(this.nextWaveBtn, `${t('hud.nextWave')}  +${Math.round(bonusPct * 100)}% 🪙`);
+/**
+   * Drives the early-call button. `fill` is 0..1 and drives the timer sweep;
+   * the button is always in place, so nothing in the panel moves when it
+   * becomes available.
+   */
+  setNextWave(available: boolean, bonusPct: number, fill: number): void {
+    this.nextWaveReady = available;
+    setVar(this.nextWaveFill, '--p', (Math.max(0, Math.min(1, fill)) * 100).toFixed(1) + '%');
+    setClass(this.nextWaveBtn, 'ready', available);
+    setText(this.nextWaveLabel, t('hud.nextWaveShort'));
+    setText(this.nextWaveBonus, `+${Math.round(bonusPct * 100)}%`);
   }
 
   setVisible(v: boolean): void {

@@ -700,7 +700,7 @@ export class Game {
     this.toast.update(dt);
     this.tutorial.update(dt);
     this.panel.update(dt);
-    this.panel.setNextWave(this.waves.canCallEarly, BAL.wave.earlyCallGoldBonus);
+    this.panel.setNextWave(this.waves.canCallEarly, BAL.wave.earlyCallGoldBonus, this.waves.earlyFill);
     if (this.waves.canCallEarly) this.tutorial.trigger(HINT_NEXT_WAVE);
     if (this.run.gold >= 20) this.tutorial.trigger(HINT_UPGRADES);
     if (wavesToNextCard(this.run) <= 1) this.tutorial.trigger(HINT_CARDS);

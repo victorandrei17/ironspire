@@ -229,7 +229,7 @@ button.dim {
      directly over the DANO button. `.upgrades` uses the same 10px inset. */
   left: calc(var(--safe-l) + 10px);
   width: 25%;
-  bottom: calc(var(--safe-b) + 172px);
+  bottom: calc(var(--safe-b) + 130px);
   display: grid;
   gap: 3px;
 }
@@ -315,7 +315,7 @@ button.dim {
   left: calc(var(--safe-l) + 14px);
   right: calc(var(--safe-r) + 14px);
   /* Above the HP bar, which now occupies the strip right over the buttons. */
-  bottom: calc(var(--safe-b) + 214px);
+  bottom: calc(var(--safe-b) + 172px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -349,9 +349,7 @@ button.dim {
   bottom: calc(var(--safe-b) + 8px);
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-areas:
-    'grid rail'
-    'next next';
+  grid-template-areas: 'grid rail';
   gap: 8px;
 }
 
@@ -404,6 +402,8 @@ button.dim {
 .upgrade-rail {
   grid-area: rail;
   display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 6px;
 }
 
 .max-btn {
@@ -419,15 +419,62 @@ button.dim {
   border-color: var(--gold);
 }
 
+/* Square, fixed above MAX, and always present: it used to appear as a
+   full-width row, which pushed every upgrade button up the moment it showed. */
 .next-wave {
-  grid-area: next;
-  width: 100%;
-  font-size: 0.8rem;
+  position: relative;
+  width: 56px;
+  height: 52px;
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 1px;
   font-weight: 800;
-  letter-spacing: 0.06em;
-  background: rgba(127, 212, 168, 0.16);
+  letter-spacing: 0.04em;
+  background: rgba(127, 212, 168, 0.08);
+  border-color: rgba(127, 212, 168, 0.3);
+  color: var(--ink-dim);
+}
+
+/* The timer sweep. Written every frame, so no transition — it would lag the
+   simulation and the button would read as ready before it is. */
+.next-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--p, 0%);
+  background: rgba(127, 212, 168, 0.2);
+}
+
+.next-label,
+.next-bonus {
+  position: relative;
+}
+
+.next-label {
+  font-size: 0.62rem;
+}
+
+.next-bonus {
+  font-size: 0.56rem;
+  color: var(--gold);
+  opacity: 0.55;
+}
+
+.next-wave.ready {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.next-wave.ready .next-fill {
+  background: rgba(127, 212, 168, 0.28);
+}
+
+.next-wave.ready .next-bonus {
+  opacity: 1;
 }
 
 /* ===========================================================================
@@ -604,10 +651,10 @@ button.dim {
 /* Short screens: pull the HUD in so the arena never gets covered. */
 @media (max-height: 700px) {
   .hud-bars {
-    bottom: calc(var(--safe-b) + 158px);
+    bottom: calc(var(--safe-b) + 120px);
   }
   .hud-purse {
-    bottom: calc(var(--safe-b) + 196px);
+    bottom: calc(var(--safe-b) + 158px);
   }
   .up-btn {
     min-height: 48px;

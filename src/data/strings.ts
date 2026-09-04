@@ -16,6 +16,7 @@ export const STRINGS_PT = {
   'hud.level': 'Nv.',
   'hud.cardIn': 'CARTA EM',
   'hud.nextWave': 'PRÓXIMA ONDA',
+  'hud.nextWaveShort': 'ONDA',
 
   'policy.closest': 'PERTO',
   'policy.strongest': 'FORTE',
@@ -100,6 +101,7 @@ export const STRINGS_EN: Partial<Record<StringKey, string>> = {
   'hud.level': 'Lv.',
   'hud.cardIn': 'CARD IN',
   'hud.nextWave': 'NEXT WAVE',
+  'hud.nextWaveShort': 'WAVE',
 
   'policy.closest': 'CLOSE',
   'policy.strongest': 'STRONG',

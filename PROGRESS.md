@@ -771,6 +771,14 @@ cada 5 waves limpas. O upgrade COLETA virou OURO (+5% por morte), o talento
 Mão Longa saiu com devolução de Núcleos na migração, e o save foi para a v2.
 SPEC §6.2, §7.1, §7.2, §7.3, §11 e §12.3 atualizados.
 
+Depois, uma passada de HUD a pedido: barra de carta fora, nível do upgrade no
+canto do botão, barra de HP com 1/4 da largura e o número dentro dela, e o
+botão de próxima onda virou um quadrado fixo acima do MAX com temporizador —
+ele enche em `BAL.wave.earlyCallAt` (80%) do cronograma de spawn, então a
+chamada agora acontece COM a wave em andamento: sobrepõe a cauda de uma com a
+cabeça da outra (SPEC §6.1). Antes ele era uma linha que aparecia e empurrava
+a grade inteira para cima.
+
 **Descoberto:**
 - As cartas eram metade da curva de poder. Chegavam ~1 por wave e davam ~15%
   cada; tirando isso, a run 1 caiu de 14 para 6. O rebalanceamento não foi

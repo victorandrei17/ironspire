@@ -96,11 +96,47 @@ describe('wave pacing (SPEC §6.1)', () => {
     expect(s.run.waveGoldBonus).toBe(1);
   });
 
-  it('cannot be called early while a wave is running', () => {
+  it('cannot be called in the opening of a wave', () => {
     const s = setup();
     tick(s, BAL.wave.gap + 0.1);
+    expect(s.waves.earlyFill).toBeLessThan(1);
     expect(s.waves.canCallEarly).toBe(false);
     expect(s.waves.callEarly(s.world, s.run, s.spawner)).toBe(false);
+  });
+
+  it('the timer fills over `earlyCallAt` of the schedule, then unlocks', () => {
+    const s = setup();
+    tick(s, BAL.wave.gap + 0.01);
+    const unlockAt = s.spawner.scheduleDuration * BAL.wave.earlyCallAt;
+    expect(unlockAt).toBeGreaterThan(0);
+
+    // Just short of the unlock: filling, but not full.
+    tick(s, unlockAt * 0.5);
+    expect(s.waves.earlyFill).toBeGreaterThan(0.3);
+    expect(s.waves.earlyFill).toBeLessThan(1);
+    expect(s.waves.canCallEarly).toBe(false);
+
+    tick(s, unlockAt * 0.5 + 0.1);
+    expect(s.waves.earlyFill).toBe(1);
+    expect(s.waves.canCallEarly).toBe(true);
+    // And it tops out BEFORE the wave has finished spawning, which is the
+    // whole point: the call overlaps the tail of this wave with the next.
+    expect(s.spawner.elapsedSec).toBeLessThan(s.spawner.scheduleDuration);
+  });
+
+  it('calling early mid-wave advances the wave and still owes a card', () => {
+    const s = setup();
+    tick(s, BAL.wave.gap + 0.01);
+    tick(s, s.spawner.scheduleDuration * BAL.wave.earlyCallAt + 0.1);
+    const cleared = s.run.wavesCleared;
+    expect(s.world.enemies.liveCount).toBeGreaterThan(0);
+
+    expect(s.waves.callEarly(s.world, s.run, s.spawner)).toBe(true);
+    expect(s.run.wave).toBe(2);
+    // Abandoned, not cleared — but it counts, or a player who always calls
+    // early would never be offered a card.
+    expect(s.run.wavesCleared).toBe(cleared + 1);
+    expect(s.waves.earlyFill).toBe(0);
   });
 });
 

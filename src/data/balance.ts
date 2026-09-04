@@ -89,6 +89,13 @@ export const BAL = {
     dmgGrowth: 1.055,
     /** Bonus for calling the next wave early — risk for reward (SPEC §6.1). */
     earlyCallGoldBonus: 0.15,
+    /**
+     * Fraction of a wave's spawn schedule after which the next wave can be
+     * called. The button's timer fills over exactly this stretch, so it tops
+     * out while the last group is still walking in — the player commits to
+     * overlapping waves rather than waiting out the tail of a decided fight.
+     */
+    earlyCallAt: 0.8,
   },
 
   boss: {

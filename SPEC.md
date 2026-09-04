@@ -234,6 +234,7 @@ A partir da wave 8, `eliteChance = min(0.02 * (wave - 7), 0.25)`. Um inimigo eli
 - A composição vem de um **sistema de pesos por tabela**, não de listas escritas à mão — 200 waves à mão é insustentável.
 - Wave termina quando todos os inimigos dela morrem **ou** saem da arena. Depois, 2 s de intervalo (`WAVE_GAP`).
 - A wave seguinte pode começar antes se o jogador tocar em "Próxima wave" → dá **+15% de ouro** naquela wave (recompensa por risco). Esse é o botão que separa jogador casual de jogador otimizador.
+- O botão é **fixo**, acima do MAX, e tem um temporizador que o preenche ao longo de `earlyCallAt` (80%) do cronograma de spawn da wave. Ou seja: ele fica disponível **antes** de a wave acabar, e chamar nesse ponto sobrepõe a cauda de uma wave com a cabeça da seguinte — os inimigos vivos continuam vivos, e o que não foi liberado nunca spawna. A wave abandonada conta como avançada (as cartas dependem desse contador).
 
 ### 6.2 Curvas canônicas
 
@@ -486,16 +487,15 @@ ether = floor((waveMax - 60) ^ 0.9 / 3)
 │            ███              │
 │                             │
 │                             │
-│   ▓▓▓▓▓▓░░ HP    Wave 23    │
-│   ▓▓▓░░░░░ CARTA EM 3       │
-│                             │
-│  🪙 4.7K            [🎯]    │  ← ouro + política de mira
+│                        [⚡] │  ← habilidades (lado do polegar)
+│  🪙 4.7K            [PERTO] │  ← ouro + política de mira
+│  CARTA EM 3                 │
+│  ▓▓ 219/240 ▓░░             │  ← HP: 1/4 da largura, número dentro
 │ ┌────┬────┬────┬────┐ ┌──┐  │
-│ │DANO│CAD │ALC │VIDA│ │⚡│  │  ← grid 4×2 de upgrades + habilidades
+│ │DANO│CAD │ALC │VIDA│ │ON│  │  ← grid 4×2 + trilho: ONDA (timer) …
 │ ├────┼────┼────┼────┤ ├──┤  │
-│ │REG │CRIT│DCRT│COLE│ │🛡│  │
+│ │REG │CRIT│DCRT│OURO│ │MX│  │  … e MAX
 │ └────┴────┴────┴────┘ └──┘  │
-│         [PRÓXIMA WAVE +15%] │
 └─────────────────────────────┘  ← safe-area bottom
 ```
 
