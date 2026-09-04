@@ -225,11 +225,13 @@ button.dim {
 
 .hud-bars {
   position: absolute;
-  left: calc(var(--safe-l) + 14px);
-  right: calc(var(--safe-r) + 14px);
-  bottom: calc(var(--safe-b) + 244px);
+  /* A quarter of the screen, left-aligned with the upgrade grid so it sits
+     directly over the DANO button. `.upgrades` uses the same 10px inset. */
+  left: calc(var(--safe-l) + 10px);
+  width: 25%;
+  bottom: calc(var(--safe-b) + 172px);
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .bar-row {
@@ -240,6 +242,7 @@ button.dim {
 }
 
 .bar-track {
+  position: relative;
   height: 13px;
   border-radius: 7px;
   background: rgba(8, 11, 16, 0.75);
@@ -271,7 +274,29 @@ button.dim {
 }
 
 .card-countdown {
+  font-size: 0.66rem;
+  text-align: left;
+  min-width: 0;
   color: #b98ce8;
+}
+
+/* The HP readout lives inside its own track. */
+.bar-inline {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  /* The fill slides under this text, so it needs its own contrast. */
+  text-shadow: 0 1px 2px #000, 0 0 3px #000;
+}
+
+.hp-track {
+  height: 16px;
 }
 
 .bar-label {
@@ -289,7 +314,8 @@ button.dim {
   position: absolute;
   left: calc(var(--safe-l) + 14px);
   right: calc(var(--safe-r) + 14px);
-  bottom: calc(var(--safe-b) + 188px);
+  /* Above the HP bar, which now occupies the strip right over the buttons. */
+  bottom: calc(var(--safe-b) + 214px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -578,10 +604,10 @@ button.dim {
 /* Short screens: pull the HUD in so the arena never gets covered. */
 @media (max-height: 700px) {
   .hud-bars {
-    bottom: calc(var(--safe-b) + 224px);
+    bottom: calc(var(--safe-b) + 158px);
   }
   .hud-purse {
-    bottom: calc(var(--safe-b) + 168px);
+    bottom: calc(var(--safe-b) + 196px);
   }
   .up-btn {
     min-height: 48px;

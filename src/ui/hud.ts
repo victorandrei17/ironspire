@@ -53,16 +53,19 @@ export class Hud {
     const bossTrack = el('div', 'bar-track boss-track', this.bossWrap);
     this.bossFill = el('div', 'bar-fill boss-fill', bossTrack);
 
+    // Sits directly above the DANO button, a quarter of the screen wide. The
+    // countdown goes FIRST so the bar itself is the element nearest the thumb.
     const bars = el('div', 'hud-bars', this.root);
-
-    const hpRow = el('div', 'bar-row', bars);
-    const hpTrack = el('div', 'bar-track', hpRow);
-    this.hpFill = el('div', 'bar-fill hp-fill', hpTrack);
-    this.hpText = el('span', 'bar-label', hpRow);
 
     // Text only: a second bar for something that moves once per wave was more
     // furniture than information.
     this.cardText = el('span', 'bar-label card-countdown', bars);
+
+    const hpTrack = el('div', 'bar-track hp-track', bars);
+    this.hpFill = el('div', 'bar-fill hp-fill', hpTrack);
+    // Inside the track, not beside it: the readout belongs to the bar, and
+    // outside it the pair cost twice the width for the same information.
+    this.hpText = el('span', 'bar-inline', hpTrack);
 
     const purse = el('div', 'hud-purse', this.root);
     this.goldText = el('span', 'gold', purse);
@@ -97,7 +100,11 @@ export class Hud {
     const tower = world.tower;
     const hpPct = Math.max(0, Math.min(1, tower.hp / Math.max(1, tower.hpMax)));
     setVar(this.hpFill, '--p', (hpPct * 100).toFixed(1) + '%');
-    setText(this.hpText, `${Math.ceil(tower.hp)} / ${Math.round(tower.hpMax)}`);
+    // Ceil the current HP so a sliver never reads as 0, but never let it print
+    // above the max: at full health a float hair over the max used to show
+    // "268 / 267".
+    const hpMax = Math.round(tower.hpMax);
+    setText(this.hpText, `${Math.min(hpMax, Math.ceil(tower.hp))} / ${hpMax}`);
     // Colour shift below a quarter health: readable at a glance, no text needed.
     setClass(this.hpFill, 'critical', hpPct < 0.25);
 
