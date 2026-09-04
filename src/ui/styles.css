@@ -221,7 +221,7 @@ button.dim {
   background: linear-gradient(90deg, #ff7a5c, #e2564d);
 }
 
-/* --- HP / XP bars, sitting just above the thumb zone ---------------------- */
+/* --- HP bar and card countdown, just above the thumb zone ---------------- */
 
 .hud-bars {
   position: absolute;
@@ -270,12 +270,8 @@ button.dim {
   }
 }
 
-.card-track {
-  height: 8px;
-}
-
-.card-fill {
-  background: linear-gradient(90deg, #c79bf5, #a86ff0);
+.card-countdown {
+  color: #b98ce8;
 }
 
 .bar-label {
@@ -342,6 +338,7 @@ button.dim {
 
 .up-btn {
   /* 48dp minimum touch target with 8dp spacing (SPEC §11.2 rule 1). */
+  position: relative;
   min-height: 54px;
   padding: 5px 3px;
   display: grid;
@@ -359,10 +356,17 @@ button.dim {
   color: var(--ink);
 }
 
+/* Out of the button's flow: the level is reference, not the thing being read
+   at a glance, and giving it its own row cost a third of the button's height. */
 .up-level {
-  font-size: 0.6rem;
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  font-size: 0.5rem;
+  font-weight: 700;
+  line-height: 1;
   color: var(--ink-dim);
-  min-height: 0.75em;
+  opacity: 0.8;
 }
 
 .up-cost {
