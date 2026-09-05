@@ -1,19 +1,9 @@
 import { el, setText, setVar, setClass, show } from './dom.ts';
 import type { RunState } from '../core/state.ts';
 import type { World } from '../entities/world.ts';
-import { POLICY_COUNT } from '../core/state.ts';
 import { fmt } from '../core/format.ts';
 import { PATTERN_INFO } from '../data/waves.ts';
-import { haptic, HAPTIC } from '../platform/haptics.ts';
 import { t } from '../data/strings.ts';
-
-const POLICY_KEYS = [
-  'policy.closest',
-  'policy.strongest',
-  'policy.weakest',
-  'policy.fastest',
-  'policy.bossFirst',
-] as const;
 
 /**
  * The in-run HUD (SPEC §11.1).
@@ -28,9 +18,10 @@ export class Hud {
   private readonly hpFill: HTMLDivElement;
   private readonly hpText: HTMLSpanElement;
   private readonly cardText: HTMLSpanElement;
+  /** The HP strip, so the camera can keep the tower clear of it. */
+  readonly barsEl: HTMLDivElement;
   private readonly waveText: HTMLSpanElement;
   private readonly goldText: HTMLSpanElement;
-  private readonly policyBtn: HTMLButtonElement;
   private readonly bannerEl: HTMLDivElement;
   private readonly bossWrap: HTMLDivElement;
   private readonly bossFill: HTMLDivElement;
@@ -39,7 +30,7 @@ export class Hud {
   private bannerT = 0;
   private bossLabel = 'CHEFE';
 
-  constructor(parent: HTMLElement, onCyclePolicy: () => void) {
+  constructor(parent: HTMLElement) {
     this.root = el('div', 'hud', parent);
 
     const top = el('div', 'hud-top', this.root);
@@ -56,6 +47,7 @@ export class Hud {
     // Sits directly above the DANO button, a quarter of the screen wide. The
     // countdown goes FIRST so the bar itself is the element nearest the thumb.
     const bars = el('div', 'hud-bars', this.root);
+    this.barsEl = bars;
 
     // Text only: a second bar for something that moves once per wave was more
     // furniture than information.
@@ -69,13 +61,6 @@ export class Hud {
 
     const purse = el('div', 'hud-purse', this.root);
     this.goldText = el('span', 'gold', purse);
-    this.policyBtn = el('button', 'policy interactive', purse);
-    this.policyBtn.type = 'button';
-    this.policyBtn.setAttribute('aria-label', 'Alternar política de mira');
-    this.policyBtn.addEventListener('click', () => {
-      haptic(HAPTIC.Light);
-      onCyclePolicy();
-    });
   }
 
   /** Named by the boss system when one spawns, so the HUD stays data-free. */
@@ -113,7 +98,6 @@ export class Hud {
 
     setText(this.waveText, `${t('hud.wave')} ${Math.max(1, run.wave)}`);
     setText(this.goldText, `🪙 ${fmt(run.gold)}`);
-    setText(this.policyBtn, t(POLICY_KEYS[run.policy % POLICY_COUNT] ?? 'policy.closest'));
 
     this.updateBossBar(world);
   }

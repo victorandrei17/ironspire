@@ -101,14 +101,36 @@ describe('targeting policies (SPEC §4.2)', () => {
     expect(acquire(world, t, POLICY.Closest)).toBe(w);
   });
 
-  it('keeps a target that is still valid, even if a closer one appears', () => {
+  it('CLOSEST abandons its target the moment a nearer enemy appears', () => {
     const world = new World();
     const t = new TargetingSystem();
     const first = spawn(world, 'grunt', world.tower.x + 200, world.tower.y);
     expect(acquire(world, t, POLICY.Closest)).toBe(first);
-    spawn(world, 'grunt', world.tower.x + 30, world.tower.y);
-    // Sticky: switching every tick makes the cannon jitter (SPEC §4.2).
-    expect(acquire(world, t, POLICY.Closest)).toBe(first);
+    const nearer = spawn(world, 'grunt', world.tower.x + 30, world.tower.y);
+    // The point of the policy: "closest" that keeps shooting whatever WAS
+    // closest is not doing what its name says.
+    expect(acquire(world, t, POLICY.Closest)).toBe(nearer);
+  });
+
+  it('CLOSEST follows a target that walks in, without waiting for a death', () => {
+    const world = new World();
+    const t = new TargetingSystem();
+    const near = spawn(world, 'grunt', world.tower.x + 60, world.tower.y);
+    const far = spawn(world, 'grunt', world.tower.x + 220, world.tower.y);
+    expect(acquire(world, t, POLICY.Closest)).toBe(near);
+    // The far one closes in and overtakes; nobody died in between.
+    world.enemies.x[far] = world.tower.x + 20;
+    expect(acquire(world, t, POLICY.Closest)).toBe(far);
+  });
+
+  it('every other policy stays sticky, so the cannon does not jitter', () => {
+    const world = new World();
+    const t = new TargetingSystem();
+    const first = spawn(world, 'grunt', world.tower.x + 200, world.tower.y, 100);
+    expect(acquire(world, t, POLICY.Strongest)).toBe(first);
+    // A stronger enemy shows up; STRONGEST keeps its target until it is gone.
+    spawn(world, 'grunt', world.tower.x + 30, world.tower.y, 500);
+    expect(acquire(world, t, POLICY.Strongest)).toBe(first);
   });
 
   it('drops a target that dies or leaves range', () => {

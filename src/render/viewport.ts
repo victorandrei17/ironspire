@@ -54,6 +54,25 @@ export class Viewport {
     return true;
   }
 
+  /**
+   * Slides the world vertically so `worldY` lands on `screenY` (CSS px).
+   *
+   * Used to sit the tower in the middle of the strip the HUD leaves free, which
+   * is not the middle of the screen: the panel owns the bottom third. Clamped so
+   * the arena never pulls away from an edge it was covering — on a screen short
+   * enough to show the whole world, it stays centred and this does nothing.
+   */
+  setVerticalFocus(worldY: number, screenY: number): void {
+    const worldH = VH * this.scale;
+    const want = screenY - worldY * this.scale;
+    // The slack runs one way or the other depending on which is taller. A world
+    // taller than the screen may only slide up (offsets in [cssH - worldH, 0]);
+    // a shorter one may only slide down, inside its own letterbox.
+    const lo = Math.min(0, this.cssH - worldH);
+    const hi = Math.max(0, this.cssH - worldH);
+    this.offsetY = Math.min(hi, Math.max(lo, want));
+  }
+
   /** Screen (CSS px, relative to canvas) → world units. */
   screenToWorldX(sx: number): number {
     return (sx - this.offsetX) / this.scale;

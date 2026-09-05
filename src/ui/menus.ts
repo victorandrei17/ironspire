@@ -72,14 +72,27 @@ export class MainMenu {
   }
 }
 
+/** Labels for the targeting policies, in `POLICY` order. */
+const POLICY_KEYS = [
+  'policy.closest',
+  'policy.strongest',
+  'policy.weakest',
+  'policy.fastest',
+  'policy.bossFirst',
+] as const;
+
 export class PauseScreen {
   readonly root: HTMLDivElement;
+
+  private readonly policyBtn: HTMLButtonElement;
 
   constructor(
     parent: HTMLElement,
     onResume: () => void,
     onQuit: () => void,
     onOptions: () => void,
+    /** Cycles the policy and returns the one now in force. */
+    onCyclePolicy: () => number,
   ) {
     this.root = el('div', 'modal pause', parent);
     this.root.hidden = true;
@@ -90,6 +103,17 @@ export class PauseScreen {
     resume.addEventListener('click', () => {
       haptic(HAPTIC.Light);
       onResume();
+    });
+
+    // Targeting lives here rather than on the HUD: it is a decision taken
+    // between fights, and on the HUD it spent a permanent thumb-sized slot on
+    // something the player touches a handful of times per run.
+    const policyRow = el('div', 'pause-row', this.root);
+    el('span', 'pause-row-label', policyRow).textContent = t('pause.targeting');
+    this.policyBtn = button('', 'policy interactive', policyRow);
+    this.policyBtn.addEventListener('click', () => {
+      haptic(HAPTIC.Light);
+      this.setPolicy(onCyclePolicy());
     });
     // Retreat pays full reward on purpose: punishing the exit makes players
     // leave the app running in a pocket, which burns battery and metrics
@@ -104,6 +128,11 @@ export class PauseScreen {
       haptic(HAPTIC.Medium);
       onQuit();
     });
+  }
+
+  /** Shows the policy in force; called on open and after every cycle. */
+  setPolicy(policy: number): void {
+    setText(this.policyBtn, t(POLICY_KEYS[policy % POLICY_KEYS.length] ?? 'policy.closest'));
   }
 
   setVisible(v: boolean): void {

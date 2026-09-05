@@ -39,11 +39,12 @@ export class Renderer {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#05070a';
     const barX = Math.ceil(vp.offsetX * vp.dpr);
-    const barY = Math.ceil(vp.offsetY * vp.dpr);
-    if (barY > 0) {
-      ctx.fillRect(0, 0, vp.pixelW, barY);
-      ctx.fillRect(0, vp.pixelH - barY - 1, vp.pixelW, barY + 1);
-    }
+    // Top and bottom are measured separately: the arena is not vertically
+    // centred any more, so one bar can exist without the other.
+    const barTop = Math.ceil(vp.offsetY * vp.dpr);
+    const barBottom = Math.ceil(vp.pixelH - (vp.offsetY + VH * vp.scale) * vp.dpr);
+    if (barTop > 0) ctx.fillRect(0, 0, vp.pixelW, barTop);
+    if (barBottom > 0) ctx.fillRect(0, vp.pixelH - barBottom - 1, vp.pixelW, barBottom + 1);
     if (barX > 0) {
       ctx.fillRect(0, 0, barX, vp.pixelH);
       ctx.fillRect(vp.pixelW - barX - 1, 0, barX + 1, vp.pixelH);

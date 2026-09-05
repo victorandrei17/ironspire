@@ -177,7 +177,12 @@ Enum `TargetPolicy`, alternável pelo jogador num botão do HUD (ícone cíclico
 | `FASTEST` | Maior velocidade |  |
 | `BOSS_FIRST` | Boss/elite > resto, depois CLOSEST |  |
 
-Aquisição roda no máximo a **10 Hz** (não a cada frame) e usa o spatial hash. O alvo é mantido até morrer ou sair do alcance (evita "gaguejar" entre alvos).
+Aquisição roda no máximo a **10 Hz** (não a cada frame) e usa o spatial hash.
+
+- **`CLOSEST` re-avalia a cada tick de 10 Hz** e troca de alvo assim que outro inimigo fica mais perto, mesmo que isso signifique abandonar quem já estava sendo atingido. Uma política chamada "mais perto" que continua atirando em quem *estava* mais perto não faz o que o nome diz.
+- **As demais são pegajosas:** o alvo é mantido até morrer ou sair do alcance. Re-avaliar "mais forte" continuamente faz o canhão gaguejar entre dois inimigos quase iguais e lê como bug.
+
+O seletor de política fica **dentro da tela de pausa** (§11.1), não no HUD: é uma decisão tomada entre lutas, e no HUD ocupava um slot permanente do tamanho de um polegar.
 
 ### 4.3 Dano recebido
 
@@ -495,7 +500,9 @@ ether = floor((waveMax - 60) ^ 0.9 / 3)
 │                             │
 │                             │
 │                        [⚡] │  ← habilidades (lado do polegar)
-│  🪙 4.7K            [PERTO] │  ← ouro + política de mira
+│         (torre centrada no  │
+│          vão livre do HUD)  │
+│  🪙 4.7K                    │  ← ouro (a mira mudou para a pausa)
 │  CARTA EM 3                 │
 │  ▓▓ 219/240 ▓░░             │  ← HP: 1/4 da largura, número dentro
 │ ┌────┬────┬────┬────┐ ┌──┐  │

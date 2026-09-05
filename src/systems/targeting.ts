@@ -11,9 +11,16 @@ import { isPhasedOut } from './ai.ts';
  * Target acquisition (SPEC §4.2).
  *
  * Runs at 10 Hz, not per frame: re-picking 60 times a second gains nothing and
- * costs a grid query per tick. The target is also STICKY — it is kept until it
- * dies or leaves range — because a policy re-evaluated continuously makes the
- * cannon jitter between two equidistant enemies and reads as a bug.
+ * costs a grid query per tick.
+ *
+ * Every policy except CLOSEST is STICKY — the target is kept until it dies or
+ * leaves range — because re-evaluating "strongest" continuously makes the
+ * cannon jitter between two near-equal enemies and reads as a bug.
+ *
+ * CLOSEST is the exception, and deliberately so: a policy called "closest" that
+ * keeps shooting the enemy that WAS closest is not doing what it says. It
+ * re-picks on every 10 Hz tick and drops the current target the moment another
+ * enemy is nearer, which is what the player asked for when they chose it.
  */
 export class TargetingSystem {
   private acc = 0;
@@ -32,9 +39,12 @@ export class TargetingSystem {
 
     this.acc += dt;
     const period = 1 / TARGETING_HZ;
-    if (tower.targetHandle >= 0 && this.acc < period) return;
-    if (this.acc >= period) this.acc = 0;
-    if (tower.targetHandle >= 0) return;
+    const due = this.acc >= period;
+    if (due) this.acc = 0;
+    // Holding a target, nothing to reconsider: only CLOSEST re-picks, and only
+    // on a due tick. With no target at all this falls through every frame, so
+    // acquisition after a kill is still immediate.
+    if (tower.targetHandle >= 0 && !(due && policy === POLICY.Closest)) return;
 
     const n = hash.query(tower.x, tower.y, range, this.candidates);
     let best = -1;

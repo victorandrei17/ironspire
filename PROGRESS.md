@@ -814,6 +814,13 @@ em 0.03/inimigo (6,2 s na wave 1 → 8,7 s na wave 80) porque é o quanto a curv
 absorve sem retune. Se a janela precisar crescer de verdade, o preço é uma
 passada inteira de balanceamento.
 
+E uma passada de mira/enquadramento: o seletor de política saiu do HUD para a
+tela de pausa, `CLOSEST` deixou de ser pegajoso (re-avalia a 10 Hz e troca de
+alvo assim que outro fica mais perto — as outras políticas continuam pegajosas
+para o canhão não gaguejar), e a torre agora fica centrada no vão livre entre o
+botão de pausa e a barra de HP, medido do DOM em vez de uma cópia dos offsets
+do CSS (assim mover um controle não esconde a torre atrás dele).
+
 **Bloqueado em:** nada novo. Continua valendo o da sessão 1 (aparelho real,
 build nativo, contas de loja).
 

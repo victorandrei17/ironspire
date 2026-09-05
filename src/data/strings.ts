@@ -25,6 +25,7 @@ export const STRINGS_PT = {
   'policy.bossFirst': 'CHEFE',
 
   'pause.title': 'PAUSA',
+  'pause.targeting': 'MIRA',
   'pause.resume': 'CONTINUAR',
   'pause.retreat': 'RETIRAR-SE (100% da recompensa)',
 
@@ -110,6 +111,7 @@ export const STRINGS_EN: Partial<Record<StringKey, string>> = {
   'policy.bossFirst': 'BOSS',
 
   'pause.title': 'PAUSED',
+  'pause.targeting': 'TARGETING',
   'pause.resume': 'RESUME',
   'pause.retreat': 'RETREAT (100% reward)',
 

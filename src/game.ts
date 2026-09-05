@@ -2,7 +2,7 @@ import { GameLoop } from './core/loop.ts';
 import { Rng } from './core/rng.ts';
 import { RunState, SCENE, POLICY_COUNT, type Scene, type TargetPolicy } from './core/state.ts';
 import { bus, EV } from './core/events.ts';
-import { AURA_HZ } from './core/constants.ts';
+import { AURA_HZ, TOWER_Y } from './core/constants.ts';
 
 import { World } from './entities/world.ts';
 
@@ -161,7 +161,7 @@ export class Game {
     this.view = createWorldView(this.world);
     this.camera = new CameraSystem(this.rng);
 
-    this.hud = new Hud(uiRoot, () => this.cyclePolicy());
+    this.hud = new Hud(uiRoot);
     this.panel = new UpgradePanel(
       uiRoot,
       this.run,
@@ -202,6 +202,7 @@ export class Game {
       () => this.setScene(SCENE.Run),
       () => this.endRun(false),
       () => this.openOptions(),
+      () => this.cyclePolicy(),
     );
     this.result = new ResultScreen(
       uiRoot,
@@ -348,6 +349,24 @@ export class Game {
 
   private resize(): void {
     this.viewport.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
+    this.refocusArena();
+  }
+
+  /**
+   * Centres the tower in the strip the HUD leaves free — between the bottom of
+   * the pause button and the top of the HP bar.
+   *
+   * Measured from the DOM rather than from a copy of the CSS offsets, so moving
+   * a control cannot silently put the tower behind it. Reading layout is only
+   * safe outside the frame, which is why this runs on resize and on entering a
+   * run, never per tick (CLAUDE.md §9). Hidden elements measure zero, so a call
+   * made while the HUD is down keeps whatever framing was last computed.
+   */
+  private refocusArena(): void {
+    const top = this.topBar.root.getBoundingClientRect();
+    const bars = this.hud.barsEl.getBoundingClientRect();
+    if (top.height <= 0 || bars.height <= 0) return;
+    this.viewport.setVerticalFocus(TOWER_Y, (top.bottom + bars.top) * 0.5);
   }
 
   // --- scenes ----------------------------------------------------------------
@@ -397,6 +416,8 @@ export class Game {
     }
     this.talentTree.setVisible(next === SCENE.Talents);
     this.options.setVisible(next === SCENE.Options);
+    if (next === SCENE.Run) this.refocusArena();
+    if (next === SCENE.Pause) this.pause.setPolicy(this.run.policy);
     this.pause.setVisible(next === SCENE.Pause);
     this.result.setVisible(next === SCENE.Result);
     // Pause and the card screen freeze the simulation entirely; the level-up
@@ -610,10 +631,11 @@ export class Game {
     return gained;
   }
 
-  private cyclePolicy(): void {
+  private cyclePolicy(): TargetPolicy {
     this.run.policy = ((this.run.policy + 1) % POLICY_COUNT) as TargetPolicy;
     // Force a fresh acquisition so the change is felt immediately.
     this.world.tower.targetHandle = -1;
+    return this.run.policy;
   }
 
   private takeCard(slot: number): void {

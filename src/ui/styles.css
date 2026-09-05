@@ -343,6 +343,26 @@ button.dim {
   text-shadow: 0 1px 4px #000;
 }
 
+/* A labelled control inside a modal: label on the left, control on the right. */
+.pause-row {
+  /* Breathing room from the primary action above it: a setting must not read
+     as another button in the same stack. */
+  margin: 4px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 240px;
+  max-width: 90vw;
+}
+
+.pause-row-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+}
+
 .policy {
   min-width: 84px;
   height: var(--tap);
