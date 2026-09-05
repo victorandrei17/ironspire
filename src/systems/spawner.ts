@@ -15,7 +15,7 @@ import {
   isBossWave,
   PATTERN,
   PATTERN_INFO,
-  PATTERN_GROUP_DELAY,
+  spawnWindow,
   PATTERN_WEIGHTS,
   PATTERN_START_WAVE,
   type WavePattern,
@@ -100,7 +100,10 @@ export class Spawner {
     const groups = Math.max(1, info.groups);
     const front = info.frontLoad;
     const baseAngle = rng.angle();
-    const delay = PATTERN_GROUP_DELAY[this.pattern] ?? 3;
+    // The window is authored per wave; the delay between groups follows from
+    // it, so the last group always lands exactly at the window's end.
+    const window = spawnWindow(wave, this.pattern);
+    const delay = groups > 1 ? window / (groups - 1) : 0;
 
     // The boss is scheduled FIRST, not appended. `update` walks the schedule
     // with a cursor and stops at the first entry whose time has not come, so an
@@ -142,7 +145,10 @@ export class Spawner {
         // Jitter inside the group only. Spreading it across most of the
         // group delay would push group 0 off zero and make every wave open
         // with an empty screen.
-        this.schedTime[i] = t + rng.float(0, Math.min(0.45, delay * 0.35));
+        // Jitter inside the group only, and never past the window: the wave's
+        // last spawn IS the end of the window, which is what the early-call
+        // timer measures itself against.
+        this.schedTime[i] = Math.min(window, t + rng.float(0, Math.min(0.45, delay * 0.35)));
         this.schedAngle[i] = arcCenter + rng.float(-info.arcRad / 2, info.arcRad / 2);
         const isElite = elite > 0 && rng.chance(elite);
         this.schedElite[i] = isElite ? 1 : 0;
@@ -165,13 +171,10 @@ export class Spawner {
       world.splitTemplate.gold = gold * swarmDef.goldMul;
     }
 
-    // The schedule is the wave's authored length: the UI's early-call timer
-    // runs against it, so it is measured once here rather than scanned per
-    // frame. Times are not strictly sorted (the boss is moved to the front),
-    // so this takes the max rather than the last entry.
-    let end = 0;
-    for (let i = 0; i < this.scheduled; i++) end = Math.max(end, this.schedTime[i] ?? 0);
-    this.scheduleEnd = end;
+    // The window is the wave's authored length and the early-call timer runs
+    // against it, so it is stored as authored rather than re-derived from the
+    // rolled times — a wave whose last group came up empty must not shorten it.
+    this.scheduleEnd = window;
 
     this.hp = hp;
     this.speedMul = speedMul;

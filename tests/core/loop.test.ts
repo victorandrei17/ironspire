@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { BAL } from '../../src/data/balance.ts';
 import { GameLoop } from '../../src/core/loop.ts';
 import { FIXED_DT, MAX_CATCHUP } from '../../src/core/constants.ts';
 
@@ -53,6 +54,20 @@ describe('GameLoop', () => {
     loop.frame(0);
     for (let i = 1; i <= 60; i++) loop.frame(i * (1000 / 60));
     expect(sims.length).toBe(30);
+  });
+
+  it('a fast-forward timeScale runs extra fixed steps, not bigger ones', () => {
+    for (const speed of BAL.speeds) {
+      const { loop, sims } = makeLoop();
+      loop.timeScale = speed;
+      loop.frame(0);
+      for (let i = 1; i <= 60; i++) loop.frame(i * (1000 / 60));
+      // One second of wall clock at `speed` is `speed` seconds of simulation,
+      // and every step is still FIXED_DT — the whole determinism argument
+      // depends on the step never growing.
+      expect(sims.length).toBe(Math.round(60 * speed));
+      for (const dt of sims) expect(dt).toBe(FIXED_DT);
+    }
   });
 
   it('alpha stays within [0,1)', () => {

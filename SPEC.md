@@ -231,6 +231,7 @@ A partir da wave 8, `eliteChance = min(0.02 * (wave - 7), 0.25)`. Um inimigo eli
 ### 6.1 Estrutura
 
 - Wave `n` = lista de *spawn groups*. Cada grupo: `{ enemyId, count, delay, spread }`.
+- **Janela de spawn:** toda wave tem uma janela autorada — do primeiro monstro ao último ser invocado. É `spawnWindow(n, padrão) = min(cap, spawnBase + spawnPerEnemy · enemyCount(n)) · mult(padrão)`. O intervalo entre grupos é DERIVADO dela (`janela / (grupos − 1)`), nunca o contrário: sem isso a duração da wave era um efeito colateral de quantos grupos o padrão usava, e a wave 40 despejava quarenta monstros nos mesmos sete segundos que a wave 1 usava para sete.
 - A composição vem de um **sistema de pesos por tabela**, não de listas escritas à mão — 200 waves à mão é insustentável.
 - Wave termina quando todos os inimigos dela morrem **ou** saem da arena. Depois, 2 s de intervalo (`WAVE_GAP`).
 - A wave seguinte pode começar antes se o jogador tocar em "Próxima wave" → dá **+15% de ouro** naquela wave (recompensa por risco). Esse é o botão que separa jogador casual de jogador otimizador.
@@ -248,6 +249,8 @@ export const BAL = {
     speedBase: 1.0,     speedGrowth: 1.004,    speedCap: 1.6,
     goldBase: 7,        goldGrowth: 1.09,
     gap: 2.0,
+    spawnBase: 6,       spawnPerEnemy: 0.03,   spawnWindowCap: 20,
+    earlyCallAt: 0.8,
   },
   run:  { startGold: 160 },
   boss: { every: 10, hpMult: 14, hpMultGrowth: 1.22, goldMult: 25 },
@@ -284,7 +287,9 @@ splitter:   w24:0   w25:15  w45:30
 wraith:     w30:0   w31:15  w55:30
 ```
 
-O gerador sorteia `enemyCount(n)` inimigos usando roleta ponderada com o PRNG semeado (`seed = runSeed ^ waveNumber`), depois agrupa em 2–4 *spawn groups* espalhados no tempo (0 s, 3 s, 6 s…) e no ângulo.
+O gerador sorteia `enemyCount(n)` inimigos usando roleta ponderada com o PRNG semeado (`seed = runSeed ^ waveNumber`), depois agrupa em 2–8 *spawn groups* distribuídos **dentro da janela de spawn** da wave (§6.1) e no ângulo. O último grupo cai exatamente no fim da janela.
+
+> **Por que a janela cresce pouco.** Com i-frames, o dano que a torre recebe é função do TEMPO em contato, não de quantos inimigos encostam. Alongar a janela alonga a wave e, portanto, o dano recebido: `npm run balance` mostrou que `spawnPerEnemy` a 0.5 (janela de 6 s → 12 s na wave 10) derruba a run 1 da onda 14 para a 8. A janela cresce, mas devagar — e cada segundo a mais precisa ser pago em outro lugar da curva.
 
 ### 6.4 Padrões de wave (variedade)
 
@@ -297,6 +302,8 @@ Sorteado a cada wave a partir da 5, com peso:
 | `PINCER` | 15 | Dois arcos opostos |
 | `TRICKLE` | 10 | Mesmo total, spawn contínuo lento — testa DPS sustentado |
 | `RUSH` | 5 | 70% da wave de uma vez — testa burst e habilidades |
+
+Cada padrão estica a janela de spawn da wave por um multiplicador próprio (`PATTERN_WINDOW_MUL`): TRICKLE 1.6, PINCER 1.15, RING/ARC 1.0, RUSH 0.5. O comprimento vem da wave; o multiplicador só mantém o padrão reconhecível dentro dela.
 
 O padrão é anunciado por um ícone + texto de 1 s antes da wave ("⟡ INVESTIDA").
 

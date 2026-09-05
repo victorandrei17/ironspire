@@ -800,6 +800,20 @@ a grade inteira para cima.
   andava. Corrigido, e virou `tools/play-real.mjs` — jogar o build de verdade é
   a única forma de saber se o simulador está mentindo.
 
+Por fim, a janela de spawn virou dado autorado (`spawnWindow(wave, padrão)` em
+`data/waves.ts`): o intervalo entre grupos é derivado dela, e não o contrário.
+E um botão de velocidade 1x/1.5x/2x no topo — sem regra de desbloqueio ainda,
+e sem persistência no save (voltar depois com a regra decide se vira `prefs`).
+
+**Descoberta cara da janela de spawn:** com i-frames, o dano recebido é função
+do TEMPO em contato, não de quantos inimigos encostam. Então alongar a janela
+alonga a wave e sobe a dificuldade de forma direta — `spawnPerEnemy` a 0.5
+(janela de 6 s → 12 s na wave 10) derrubou a run 1 da onda 14 para a 8, e nem
+i-frames a 0.55 nem chefe com 10× de vida recuperaram a faixa do meio. Fechei
+em 0.03/inimigo (6,2 s na wave 1 → 8,7 s na wave 80) porque é o quanto a curva
+absorve sem retune. Se a janela precisar crescer de verdade, o preço é uma
+passada inteira de balanceamento.
+
 **Bloqueado em:** nada novo. Continua valendo o da sessão 1 (aparelho real,
 build nativo, contas de loja).
 

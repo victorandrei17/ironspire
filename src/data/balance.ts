@@ -90,10 +90,23 @@ export const BAL = {
     /** Bonus for calling the next wave early — risk for reward (SPEC §6.1). */
     earlyCallGoldBonus: 0.15,
     /**
-     * Fraction of a wave's spawn schedule after which the next wave can be
-     * called. The button's timer fills over exactly this stretch, so it tops
-     * out while the last group is still walking in — the player commits to
-     * overlapping waves rather than waiting out the tail of a decided fight.
+     * The wave's SPAWN WINDOW: from the first monster to the last one being
+     * summoned. It is an authored quantity, not a by-product of how many groups
+     * a pattern happens to use — the group delay is derived from it, so a wave
+     * with 40 monsters takes longer to pour in than one with 7, and the
+     * early-call timer has a length that means something.
+     *
+     * window = base + perEnemy * enemyCount(wave), capped, times the pattern's
+     * own multiplier (GOTEJO drips, AVALANCHE dumps).
+     */
+    spawnBase: 6,
+    spawnPerEnemy: 0.03,
+    spawnWindowCap: 20,
+    /**
+     * Fraction of the spawn window after which the next wave can be called.
+     * The button's timer fills over exactly this stretch, so it tops out while
+     * the last group is still coming in — the player commits to overlapping
+     * waves rather than waiting out the tail of a decided fight.
      */
     earlyCallAt: 0.8,
   },
@@ -136,6 +149,14 @@ export const BAL = {
     slowMoScale: 0.15,
     slowMoSec: 0.35,
   },
+
+  /**
+   * Selectable game speeds (SPEC §12.2). Multiplies the loop's time scale, so
+   * the simulation still runs at the fixed timestep — it just runs more steps
+   * per frame. Nothing here decides WHO gets the faster speeds; that gate is
+   * still to be designed.
+   */
+  speeds: [1, 1.5, 2] as const,
 
   run: {
     /**

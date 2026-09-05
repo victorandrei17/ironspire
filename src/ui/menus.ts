@@ -1,7 +1,14 @@
-import { el, button, setText, show } from './dom.ts';
+import { el, button, setText, setClass, show } from './dom.ts';
 import { fmt, fmtTime } from '../core/format.ts';
 import { haptic, HAPTIC } from '../platform/haptics.ts';
 import { t } from '../data/strings.ts';
+import { BAL } from '../data/balance.ts';
+
+/** "1x", "1.5x", "2x" — trailing zeros would read as precision that is not there. */
+function speedLabel(i: number): string {
+  const v = BAL.speeds[i] ?? 1;
+  return `${v}x`;
+}
 
 /**
  * Menu, pause and result screens (SPEC §12.6).
@@ -172,14 +179,33 @@ function statRow(parent: HTMLElement, label: string): HTMLSpanElement {
 export class TopBar {
   readonly root: HTMLDivElement;
 
-  constructor(parent: HTMLElement, onPause: () => void) {
+  private readonly speedBtn: HTMLButtonElement;
+  private speedIdx = 0;
+
+  constructor(parent: HTMLElement, onPause: () => void, onSpeed: (mult: number) => void) {
     this.root = el('div', 'topbar', parent);
+
+    this.speedBtn = button(speedLabel(0), 'icon-btn speed-btn interactive', this.root);
+    this.speedBtn.setAttribute('aria-label', 'Velocidade do jogo');
+    this.speedBtn.addEventListener('click', () => {
+      this.speedIdx = (this.speedIdx + 1) % BAL.speeds.length;
+      this.speedBtn.textContent = speedLabel(this.speedIdx);
+      setClass(this.speedBtn, 'on', this.speedIdx > 0);
+      haptic(HAPTIC.Light);
+      onSpeed(BAL.speeds[this.speedIdx] ?? 1);
+    });
+
     const pause = button('⏸', 'icon-btn interactive', this.root);
     pause.setAttribute('aria-label', 'Pausar');
     pause.addEventListener('click', () => {
       haptic(HAPTIC.Light);
       onPause();
     });
+  }
+
+  /** The multiplier the player last picked. */
+  get speed(): number {
+    return BAL.speeds[this.speedIdx] ?? 1;
   }
 
   setVisible(v: boolean): void {

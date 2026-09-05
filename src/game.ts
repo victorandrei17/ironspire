@@ -208,7 +208,11 @@ export class Game {
       () => this.startRun(),
       () => this.setScene(SCENE.Menu),
     );
-    this.topBar = new TopBar(uiRoot, () => this.setScene(SCENE.Pause));
+    this.topBar = new TopBar(
+      uiRoot,
+      () => this.setScene(SCENE.Pause),
+      () => undefined, // the tick reads topBar.speed; nothing to do on change
+    );
     this.abilityBar = new AbilityBar(uiRoot, (id) => this.abilities.cast(this.world, id));
     this.transition = new Transition(uiRoot);
     this.toast = new Toast(uiRoot);
@@ -654,7 +658,9 @@ export class Game {
     this.levelUpFx.update(dt);
     // Level-up hit-stop: time crawls for a beat before the card screen
     // (SPEC §7.3). Applied to the loop, not to individual systems.
-    this.loop.timeScale = this.levelUpFx.timeScale;
+    // Player speed and the level-up hit-stop MULTIPLY: picking 2x must not
+    // cancel the slow-motion beat before the card screen.
+    this.loop.timeScale = this.levelUpFx.timeScale * this.topBar.speed;
 
     this.waves.update(this.world, this.run, this.spawner, dt);
     this.ai.update(

@@ -7,6 +7,8 @@ import {
   enemySpeedMul,
   goldDrop,
   isBossWave,
+  spawnWindow,
+  PATTERN,
   eliteChance,
   PATTERN_WEIGHTS,
   PATTERN_INFO,
@@ -32,6 +34,16 @@ describe('wave curves (SPEC §6.2)', () => {
       expect(goldDrop(w)).toBeGreaterThan(goldDrop(w - 1));
       expect(enemySpeedMul(w)).toBeGreaterThanOrEqual(enemySpeedMul(w - 1));
     }
+  });
+
+  it('the spawn window grows with the wave and then caps', () => {
+    const ring = PATTERN.Ring;
+    expect(spawnWindow(10, ring)).toBeGreaterThan(spawnWindow(1, ring));
+    expect(spawnWindow(40, ring)).toBeGreaterThan(spawnWindow(10, ring));
+    // Capped, or a wave-200 window would be minutes long.
+    expect(spawnWindow(500, ring)).toBeLessThanOrEqual(BAL.wave.spawnWindowCap);
+    // A drip pours the same wave over longer than a dump.
+    expect(spawnWindow(20, PATTERN.Trickle)).toBeGreaterThan(spawnWindow(20, PATTERN.Rush));
   });
 
   it('respects the count and speed caps', () => {

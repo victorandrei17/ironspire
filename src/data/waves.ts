@@ -175,5 +175,25 @@ export const PATTERN_INFO = [
   { name: 'AVALANCHE', icon: '⚡', arcRad: Math.PI * 2, groups: 2, frontLoad: 0.7 },
 ] as const;
 
-/** Seconds between spawn groups, per pattern. */
-export const PATTERN_GROUP_DELAY = [3, 3, 2.5, 1.6, 4] as const;
+/**
+ * Per-pattern stretch of the wave's spawn window.
+ *
+ * The window's LENGTH comes from the wave (see `spawnWindow`); this only keeps
+ * each pattern's pacing recognisable inside it — a drip is longer than a dump
+ * even when both are pouring the same wave.
+ */
+export const PATTERN_WINDOW_MUL = [1, 1, 1.15, 1.6, 0.5] as const;
+
+/**
+ * Seconds from the first spawn of a wave to its last (SPEC §6.1).
+ *
+ * This is the wave's authored length: the early-call timer runs against it, and
+ * the spawner derives its group delay from it rather than the other way round.
+ * It grows with the wave because the wave grows — a fixed window meant wave 40
+ * poured forty monsters in the same seven seconds wave 1 used for seven.
+ */
+export function spawnWindow(wave: number, pattern: WavePattern): number {
+  const raw = BAL.wave.spawnBase + BAL.wave.spawnPerEnemy * enemyCount(wave);
+  const mul = PATTERN_WINDOW_MUL[pattern] ?? 1;
+  return Math.min(BAL.wave.spawnWindowCap, raw) * mul;
+}

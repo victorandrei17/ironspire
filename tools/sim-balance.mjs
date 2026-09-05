@@ -69,6 +69,9 @@ const BAL = {
   critChance: numField(balanceSrc, 'critChance'),
   critMult: numField(balanceSrc, 'critMult'),
   cardEveryWaves: numField(balanceSrc, 'cardEveryWaves'),
+  spawnBase: numField(balanceSrc, 'spawnBase'),
+  spawnPerEnemy: numField(balanceSrc, 'spawnPerEnemy'),
+  spawnWindowCap: numField(balanceSrc, 'spawnWindowCap'),
   startGold: numField(balanceSrc, 'startGold'),
 };
 
@@ -98,6 +101,12 @@ const enemyHp = (w) =>
     : BAL.hpBase * BAL.hpGrowth ** (BAL.hpSoftCapWave - 1) * BAL.hpGrowthLate ** (w - BAL.hpSoftCapWave);
 const goldDrop = (w) => BAL.goldBase * BAL.goldGrowth ** (w - 1);
 const isBossWave = (w) => w % BAL.bossEvery === 0;
+/**
+ * Mirror of `spawnWindow` in src/data/waves.ts, at the average pattern stretch
+ * (the model does not roll patterns).
+ */
+const spawnWindow = (w) =>
+  Math.min(BAL.spawnWindowCap, BAL.spawnBase + BAL.spawnPerEnemy * enemyCount(w));
 /** Mirror of `bossHpMult` in src/data/waves.ts. */
 const bossHpMult = (w) =>
   BAL.bossHpMult * BAL.bossHpMultGrowth ** (Math.max(1, Math.floor(w / BAL.bossEvery)) - 1);
@@ -262,7 +271,8 @@ function fightWave(state, wave, count, hp, bossHp) {
   const incomingPerContact = ENEMY_DPS_BASE * BAL.dmgGrowth ** (wave - 1);
   const regen = addOf(state, 'regen');
   const groups = 3;
-  const groupDelay = 3;
+  // Derived from the wave's authored spawn window, exactly as the spawner does.
+  const groupDelay = spawnWindow(wave) / (groups - 1);
 
   // Bodies are tracked in three bands, because the two crossings matter
   // separately: the tower shoots everything inside the range ring, and takes

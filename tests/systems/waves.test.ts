@@ -6,7 +6,7 @@ import { WaveSystem, WAVE_PHASE } from '../../src/systems/waves.ts';
 import { UPGRADE_COUNT } from '../../src/data/upgrades.ts';
 import { CARD_COUNT } from '../../src/data/cards.ts';
 import { BAL } from '../../src/data/balance.ts';
-import { enemyCount, isBossWave } from '../../src/data/waves.ts';
+import { enemyCount, isBossWave, spawnWindow } from '../../src/data/waves.ts';
 import { EF } from '../../src/data/enemyFlags.ts';
 import { FIXED_DT, R_SPAWN } from '../../src/core/constants.ts';
 import {
@@ -102,6 +102,22 @@ describe('wave pacing (SPEC §6.1)', () => {
     expect(s.waves.earlyFill).toBeLessThan(1);
     expect(s.waves.canCallEarly).toBe(false);
     expect(s.waves.callEarly(s.world, s.run, s.spawner)).toBe(false);
+  });
+
+  it('the last monster of a wave spawns exactly at the end of its window', () => {
+    const s = setup();
+    tick(s, BAL.wave.gap + 0.01);
+    const window = spawnWindow(s.run.wave, s.spawner.pattern);
+    expect(s.spawner.scheduleDuration).toBeCloseTo(window, 5);
+
+    // Nothing is left to release once the window has passed...
+    tick(s, window + 0.05);
+    expect(s.spawner.allReleased).toBe(true);
+    // ...and it was not all dumped early either.
+    const s2 = setup();
+    tick(s2, BAL.wave.gap + 0.01);
+    tick(s2, window * 0.5);
+    expect(s2.spawner.allReleased).toBe(false);
   });
 
   it('the timer fills over `earlyCallAt` of the schedule, then unlocks', () => {
