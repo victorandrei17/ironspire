@@ -22,6 +22,8 @@
   --safe-r: env(safe-area-inset-right, 0px);
   --ui-scale: 1;
   --tap: 48px;
+  /* Height of one upgrade button, and so of one grid row. */
+  --up-h: 54px;
 }
 
 * {
@@ -405,21 +407,52 @@ button.dim {
 .upgrades {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-areas: 'grid rail';
+  grid-template-areas:
+    'tabs tabs'
+    'grid rail';
   gap: 8px;
+}
+
+.upgrade-tabs {
+  grid-area: tabs;
+  display: flex;
+  gap: 6px;
+}
+
+.tab-btn {
+  flex: 1 1 0;
+  min-height: 32px;
+  padding: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+  background: rgba(21, 26, 35, 0.9);
+}
+
+/* The open tab reads as the surface the grid below belongs to, so it loses its
+   bottom edge into it rather than sitting as a separate lit button. */
+.tab-btn.on {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: rgba(127, 212, 168, 0.14);
 }
 
 .upgrade-grid {
   grid-area: grid;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  /* Always two rows tall, whatever the open tab holds. A dock that changes
+     height when you switch tabs moves every button under the thumb — and it
+     would re-frame the arena, since the camera measures the dock. */
+  grid-template-rows: repeat(2, var(--up-h));
   gap: 6px;
 }
 
 .up-btn {
   /* 48dp minimum touch target with 8dp spacing (SPEC §11.2 rule 1). */
   position: relative;
-  min-height: 54px;
+  min-height: var(--up-h);
   padding: 5px 3px;
   display: grid;
   gap: 1px;
@@ -706,8 +739,8 @@ button.dim {
 
 /* Short screens: pull the HUD in so the arena never gets covered. */
 @media (max-height: 700px) {
-  .up-btn {
-    min-height: 48px;
+  :root {
+    --up-h: 48px;
   }
 }
 

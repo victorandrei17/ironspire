@@ -330,18 +330,20 @@ O padrão **não é anunciado**: o banner de início de wave foi removido — el
 
 ### 7.2 Upgrades in-run (painel inferior)
 
-8 upgrades, sempre visíveis, com **compra por toque e por hold (auto-repeat após 400 ms)**.
+8 upgrades em **três abas** (ATAQUE / DEFESA / ECONOMIA), com **compra por toque e por hold (auto-repeat após 400 ms)**.
 
-| Upgrade | Efeito por nível | Custo base | Crescimento |
-|---------|------------------|-----------|-------------|
-| Dano | ×1.085 (composto) | 2 | 1.115 |
-| Cadência | +6% do base | 3 | 1.125 |
-| Alcance | +8 unidades | 3 | 1.10 |
-| Vida Máx. | ×1.055 (composto, cura o que adiciona) | 4 | 1.12 |
-| Regeneração | +0.6 HP/s | 6 | 1.16 |
-| Chance Crít. | +1.2% (cap 60%) | 6 | 1.14 |
-| Dano Crít. | +0.07x | 7 | 1.15 |
-| Ouro | +5% por morte | 6 | 1.16 |
+A divisão é por *o que o jogador está tentando fazer* — bater mais forte, sobreviver mais, ganhar mais rápido — não pelo stat que o upgrade toca. A grade tem sempre duas linhas de altura, mesmo numa aba com um botão só: um dock que muda de altura ao trocar de aba mexe todos os botões debaixo do polegar e ainda re-enquadraria a arena (a câmera mede o dock).
+
+| Upgrade | Aba | Efeito por nível | Custo base | Crescimento |
+|---------|-----|------------------|-----------|-------------|
+| Dano | Ataque | ×1.085 (composto) | 2 | 1.115 |
+| Cadência | Ataque | +6% do base | 3 | 1.125 |
+| Alcance | Ataque | +8 unidades | 3 | 1.10 |
+| Vida Máx. | Defesa | ×1.055 (composto, cura o que adiciona) | 4 | 1.12 |
+| Regeneração | Defesa | +0.6 HP/s | 6 | 1.16 |
+| Chance Crít. | Ataque | +1.2% (cap 60%) | 6 | 1.14 |
+| Dano Crít. | Ataque | +0.07x | 7 | 1.15 |
+| Ouro | Economia | +5% por morte | 6 | 1.16 |
 
 ```
 cost(level) = floor(base * growth^level * metaCostMult)

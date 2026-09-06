@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { RunState } from '../../src/core/state.ts';
 import { TowerStats, ST } from '../../src/entities/tower.ts';
-import { UPGRADES, UPGRADE_COUNT, upgradeCost } from '../../src/data/upgrades.ts';
+import { UPGRADES, UPGRADE_TABS, UPGRADE_COUNT, upgradeCost } from '../../src/data/upgrades.ts';
 import { CARD_COUNT } from '../../src/data/cards.ts';
 import {
   costOf,
@@ -27,6 +27,27 @@ function naiveTotal(idx: number, fromLevel: number, count: number): number {
   for (let k = 0; k < count; k++) sum += upgradeCost(def, fromLevel + k);
   return sum;
 }
+
+describe('shop tabs (SPEC §7.2)', () => {
+  it('every upgrade belongs to one of the declared tabs', () => {
+    const ids = new Set(UPGRADE_TABS.map((t) => t.id));
+    expect(ids.size).toBe(UPGRADE_TABS.length);
+    for (const u of UPGRADES) expect(ids.has(u.tab)).toBe(true);
+  });
+
+  it('no tab is empty, or it would open on nothing', () => {
+    for (const tab of UPGRADE_TABS) {
+      expect(UPGRADES.filter((u) => u.tab === tab.id).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('a tab holds at most one grid page, so nothing scrolls out of reach', () => {
+    for (const tab of UPGRADE_TABS) {
+      // The grid is four columns and the dock has room for two rows.
+      expect(UPGRADES.filter((u) => u.tab === tab.id).length).toBeLessThanOrEqual(8);
+    }
+  });
+});
 
 describe('upgrade purchases (SPEC §7.2)', () => {
   it('charges the listed price and raises the level', () => {

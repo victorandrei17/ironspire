@@ -30,6 +30,21 @@ import { ST } from './stats.ts';
  */
 export type UpgradeKind = 'flat' | 'pctOfBase' | 'mult';
 
+/**
+ * Which tab of the shop an upgrade sits in (SPEC §7.2).
+ *
+ * The split is by what the player is trying to DO — hit harder, survive longer,
+ * earn faster — not by which stat the upgrade happens to touch.
+ */
+export type UpgradeTab = 'attack' | 'defense' | 'economy';
+
+/** Tab order, left to right, with the string key for the label. */
+export const UPGRADE_TABS = [
+  { id: 'attack', label: 'tab.attack' },
+  { id: 'defense', label: 'tab.defense' },
+  { id: 'economy', label: 'tab.economy' },
+] as const satisfies readonly { id: UpgradeTab; label: string }[];
+
 export type UpgradeDef = {
   readonly id: string;
   /** PT-BR label for the button (SPEC: game strings are Portuguese). */
@@ -45,6 +60,7 @@ export type UpgradeDef = {
   readonly maxLevel: number;
   /** Short effect text for the button subtitle. */
   readonly blurb: string;
+  readonly tab: UpgradeTab;
 };
 
 export const UPGRADES = [
@@ -59,6 +75,7 @@ export const UPGRADES = [
     costGrowth: 1.115,
     maxLevel: 0,
     blurb: '×1.075',
+    tab: 'attack',
   },
   {
     id: 'rate',
@@ -71,6 +88,7 @@ export const UPGRADES = [
     costGrowth: 1.125,
     maxLevel: 0,
     blurb: '+6%',
+    tab: 'attack',
   },
   {
     id: 'range',
@@ -83,6 +101,7 @@ export const UPGRADES = [
     costGrowth: 1.1,
     maxLevel: 0,
     blurb: '+8',
+    tab: 'attack',
   },
   {
     id: 'hp',
@@ -95,6 +114,7 @@ export const UPGRADES = [
     costGrowth: 1.12,
     maxLevel: 0,
     blurb: '×1.055',
+    tab: 'defense',
   },
   {
     id: 'regen',
@@ -109,6 +129,7 @@ export const UPGRADES = [
     costGrowth: 1.16,
     maxLevel: 0,
     blurb: '+0.6/s',
+    tab: 'defense',
   },
   {
     id: 'critchance',
@@ -123,6 +144,7 @@ export const UPGRADES = [
     // button from staying buyable long after it stopped doing anything.
     maxLevel: 46,
     blurb: '+1.2%',
+    tab: 'attack',
   },
   {
     id: 'critdmg',
@@ -135,6 +157,7 @@ export const UPGRADES = [
     costGrowth: 1.15,
     maxLevel: 0,
     blurb: '+0.07x',
+    tab: 'attack',
   },
   {
     id: 'gold',
@@ -152,6 +175,7 @@ export const UPGRADES = [
     costGrowth: 1.16,
     maxLevel: 0,
     blurb: '+5%',
+    tab: 'economy',
   },
 ] as const satisfies readonly UpgradeDef[];
 

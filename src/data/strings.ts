@@ -14,6 +14,9 @@ export const STRINGS_PT = {
 
   'hud.wave': 'ONDA',
   'hud.cleared': 'CONCLUÍDA',
+  'tab.attack': 'ATAQUE',
+  'tab.defense': 'DEFESA',
+  'tab.economy': 'ECONOMIA',
   'hud.level': 'Nv.',
   'hud.nextWave': 'PRÓXIMA ONDA',
   'hud.nextWaveShort': 'ONDA',
@@ -100,6 +103,9 @@ export const STRINGS_EN: Partial<Record<StringKey, string>> = {
 
   'hud.wave': 'WAVE',
   'hud.cleared': 'CLEARED',
+  'tab.attack': 'ATTACK',
+  'tab.defense': 'DEFENSE',
+  'tab.economy': 'ECONOMY',
   'hud.level': 'Lv.',
   'hud.nextWave': 'NEXT WAVE',
   'hud.nextWaveShort': 'WAVE',

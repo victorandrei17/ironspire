@@ -854,6 +854,12 @@ O simulador aprendeu a economia nova: média ponderada pela composição da wave
 ouro fixo por chefe, e o multiplicador de ouro da meta — que ele ignorava, e por
 isso subestimava todo cenário que não fosse a run 1.
 
+A loja in-run ganhou **três abas** (ATAQUE / DEFESA / ECONOMIA). Com o roster
+atual elas ficam desbalanceadas — 5 / 2 / 1 — o que é menos um problema de
+layout e mais um mapa do que falta: DEFESA e ECONOMIA têm espaço reservado
+para upgrades que ainda não existem (escudo, esquiva, ouro por onda, desconto
+de custo, sorte de carta).
+
 **Bloqueado em:** nada novo. Continua valendo o da sessão 1 (aparelho real,
 build nativo, contas de loja).
 

@@ -1,7 +1,7 @@
 import { el, setText, setVar, setClass, show } from './dom.ts';
 import type { RunState } from '../core/state.ts';
 import { ST, type TowerStats } from '../entities/tower.ts';
-import { UPGRADES } from '../data/upgrades.ts';
+import { UPGRADES, UPGRADE_TABS, type UpgradeTab } from '../data/upgrades.ts';
 import { costOf, isMaxed, buyUpgrade, buyMax, maxAffordable } from '../systems/upgrades.ts';
 import { fmt } from '../core/format.ts';
 import { haptic, HAPTIC } from '../platform/haptics.ts';
@@ -13,11 +13,15 @@ const HOLD_DELAY = 0.4;
 const REPEAT_PERIOD = 0.09;
 
 /**
- * The 4x2 upgrade grid (SPEC §7.2, §11.1).
+ * The upgrade shop: three tabs over a 4-column grid (SPEC §7.2, §11.1).
  *
- * Buttons dim when unaffordable but NEVER disappear: a grid that reflows under
- * the thumb is how you get mis-taps, and the player needs to see what they are
- * saving for.
+ * Within a tab, buttons dim when unaffordable but NEVER disappear: a grid that
+ * reflows under the thumb is how you get mis-taps, and the player needs to see
+ * what they are saving for. Switching tabs is the one thing that changes which
+ * buttons exist, and that is a deliberate act.
+ *
+ * Every button is built once and hidden when its tab is not the open one, so
+ * the hold/repeat bookkeeping never has to care which tab is showing.
  */
 export class UpgradePanel {
   readonly root: HTMLDivElement;
@@ -26,6 +30,8 @@ export class UpgradePanel {
   private readonly names: HTMLSpanElement[] = [];
   private readonly levels: HTMLSpanElement[] = [];
   private readonly costs: HTMLSpanElement[] = [];
+  private readonly tabButtons: HTMLButtonElement[] = [];
+  private tab: UpgradeTab = 'attack';
   private readonly maxBtn: HTMLButtonElement;
   private readonly nextWaveBtn: HTMLButtonElement;
   private readonly nextWaveFill: HTMLDivElement;
@@ -58,6 +64,23 @@ export class UpgradePanel {
     private readonly onBought: (previousMaxHp: number) => void,
   ) {
     this.root = el('div', 'upgrades', parent);
+
+    const tabs = el('div', 'upgrade-tabs', this.root);
+    for (const def of UPGRADE_TABS) {
+      const b = el('button', 'tab-btn interactive', tabs);
+      b.type = 'button';
+      b.textContent = t(def.label);
+      b.addEventListener('click', () => {
+        if (this.tab === def.id) return;
+        this.tab = def.id;
+        // A finger still down on a button that just vanished must not keep
+        // buying it.
+        this.holding = -1;
+        this.applyTab();
+        haptic(HAPTIC.Light);
+      });
+      this.tabButtons.push(b);
+    }
 
     const grid = el('div', 'upgrade-grid', this.root);
     for (let i = 0; i < UPGRADES.length; i++) {
@@ -96,11 +119,25 @@ export class UpgradePanel {
       haptic(HAPTIC.Light);
     });
 
+    this.applyTab();
+
     this.nextWaveBtn.addEventListener('click', () => {
       if (!this.nextWaveReady) return;
       haptic(HAPTIC.Medium);
       this.onNextWave();
     });
+  }
+
+  /** Shows the open tab's buttons and marks its header. */
+  private applyTab(): void {
+    for (let i = 0; i < this.buttons.length; i++) {
+      const b = this.buttons[i];
+      if (b !== undefined) show(b, UPGRADES[i]?.tab === this.tab);
+    }
+    for (let i = 0; i < this.tabButtons.length; i++) {
+      const b = this.tabButtons[i];
+      if (b !== undefined) setClass(b, 'on', UPGRADE_TABS[i]?.id === this.tab);
+    }
   }
 
   private bindHold(b: HTMLButtonElement, idx: number): void {
