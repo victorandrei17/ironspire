@@ -188,7 +188,7 @@ export class ResultScreen {
     setText(this.waveEl, String(r.wave));
     setText(this.killsEl, fmt(r.kills));
     setText(this.timeEl, fmtTime(r.timeSec));
-    setText(this.goldEl, fmt(r.gold));
+    setText(this.goldEl, fmt(Math.floor(r.gold)));
     setText(this.coresEl, fmt(r.cores));
   }
 

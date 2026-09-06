@@ -257,7 +257,6 @@ export class Game {
     });
     bus.on(EV.BossKilled, () => this.audio.duckMusic(false));
 
-    bus.on(EV.WaveStart, (wave, pattern) => this.hud.banner(pattern, wave));
     bus.on(EV.BossSpawned, (idx) => {
       this.boss.register(this.spawner.bossHandle, idx);
       this.hud.setBossName(BOSSES[idx]?.name ?? 'CHEFE');

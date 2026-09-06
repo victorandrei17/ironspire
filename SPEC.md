@@ -313,7 +313,7 @@ Sorteado a cada wave a partir da 5, com peso:
 
 Cada padrão estica a janela de spawn da wave por um multiplicador próprio (`PATTERN_WINDOW_MUL`): TRICKLE 1.6, PINCER 1.15, RING/ARC 1.0, RUSH 0.5. O comprimento vem da wave; o multiplicador só mantém o padrão reconhecível dentro dela.
 
-O padrão é anunciado por um ícone + texto de 1 s antes da wave ("⟡ INVESTIDA").
+O padrão **não é anunciado**: o banner de início de wave foi removido — ele repetia no topo o número que o HUD já mostra e cobria a arena no momento em que os inimigos entram. O que a wave é se lê pelo que aparece nela. O único aviso no topo é o "ONDA N CONCLUÍDA" de 1 s ao morrer o último inimigo.
 
 ---
 

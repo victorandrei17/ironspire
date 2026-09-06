@@ -2,7 +2,6 @@ import { el, setText, setVar, setClass, show } from './dom.ts';
 import type { RunState } from '../core/state.ts';
 import type { World } from '../entities/world.ts';
 import { fmt } from '../core/format.ts';
-import { PATTERN_INFO } from '../data/waves.ts';
 import { t } from '../data/strings.ts';
 import { BAL } from '../data/balance.ts';
 
@@ -24,13 +23,11 @@ export class Hud {
   readonly barsEl: HTMLDivElement;
   private readonly waveText: HTMLSpanElement;
   private readonly goldText: HTMLSpanElement;
-  private readonly bannerEl: HTMLDivElement;
   private readonly clearedEl: HTMLDivElement;
   private readonly bossWrap: HTMLDivElement;
   private readonly bossFill: HTMLDivElement;
   private readonly bossName: HTMLSpanElement;
 
-  private bannerT = 0;
   private clearedT = 0;
   private bossLabel = 'CHEFE';
 
@@ -47,8 +44,6 @@ export class Hud {
 
     const top = el('div', 'hud-top', this.root);
     this.waveText = el('span', 'hud-wave', top);
-    this.bannerEl = el('div', 'hud-banner', this.root);
-    this.bannerEl.hidden = true;
     this.clearedEl = el('div', 'hud-cleared', this.root);
     this.clearedEl.hidden = true;
 
@@ -98,22 +93,10 @@ export class Hud {
     this.clearedT = 1;
   }
 
-  banner(patternIdx: number, wave: number): void {
-    const info = PATTERN_INFO[patternIdx] ?? PATTERN_INFO[0];
-    setText(this.bannerEl, `${info.icon}  ${t('hud.wave')} ${wave} · ${info.name}`);
-    show(this.bannerEl, true);
-    this.bannerT = 1.4;
-  }
-
   update(run: RunState, world: World, dt: number): void {
     if (this.clearedT > 0) {
       this.clearedT -= dt;
       if (this.clearedT <= 0) show(this.clearedEl, false);
-    }
-
-    if (this.bannerT > 0) {
-      this.bannerT -= dt;
-      if (this.bannerT <= 0) show(this.bannerEl, false);
     }
 
     const tower = world.tower;
@@ -133,7 +116,11 @@ export class Hud {
     setText(this.cardText, `${done}/${every}`);
 
     setText(this.waveText, `${t('hud.wave')} ${Math.max(1, run.wave)}`);
-    setText(this.goldText, `🪙 ${fmt(run.gold)}`);
+    // Floored, not rounded: the purse must never claim gold that cannot be
+    // spent. Drops are whole numbers but the multipliers on top of them (the
+    // early-call bonus, the OURO upgrade) are not, and with drops of 1 to 4 the
+    // leftover fraction used to show up as "0.7 gold".
+    setText(this.goldText, `🪙 ${fmt(Math.floor(run.gold))}`);
 
     this.updateBossBar(world);
   }
