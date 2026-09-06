@@ -503,8 +503,7 @@ ether = floor((waveMax - 60) ^ 0.9 / 3)
 │         (torre centrada no  │
 │          vão livre do HUD)  │
 │  🪙 4.7K                    │  ← ouro (a mira mudou para a pausa)
-│  CARTA EM 3                 │
-│  ▓▓ 219/240 ▓░░             │  ← HP: 1/4 da largura, número dentro
+│  ▓▓ 219/240 ▓░░  ▓ 2/5      │  ← HP (1/4 da tela) + cartas (metade dele)
 │ ┌────┬────┬────┬────┐ ┌──┐  │
 │ │DANO│CAD │ALC │VIDA│ │ON│  │  ← grid 4×2 + trilho: ONDA (timer) …
 │ ├────┼────┼────┼────┤ ├──┤  │

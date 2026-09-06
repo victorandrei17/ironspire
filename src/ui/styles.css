@@ -239,13 +239,28 @@ button.dim {
 
 .hud-bars {
   position: absolute;
-  /* A quarter of the screen, left-aligned with the upgrade grid so it sits
-     directly over the DANO button. `.upgrades` uses the same 10px inset. */
+  /* Left-aligned with the upgrade grid so the HP bar sits directly over the
+     DANO button. `.upgrades` uses the same 10px inset. */
   left: calc(var(--safe-l) + 10px);
-  width: 25%;
   bottom: calc(var(--safe-b) + 130px);
-  display: grid;
-  gap: 3px;
+  /* HP is a quarter of the screen and the card counter half of that, so the
+     strip is 37.5% plus the gap between them. The 2:1 flex below splits it. */
+  width: calc(37.5% + 6px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hp-track {
+  flex: 2 1 0;
+}
+
+.card-track {
+  flex: 1 1 0;
+}
+
+.card-fill {
+  background: linear-gradient(90deg, #8ee0b4, #49bd86);
 }
 
 .bar-row {
@@ -287,13 +302,6 @@ button.dim {
   }
 }
 
-.card-countdown {
-  font-size: 0.66rem;
-  text-align: left;
-  min-width: 0;
-  color: #b98ce8;
-}
-
 /* The HP readout lives inside its own track. */
 .bar-inline {
   position: absolute;
@@ -309,7 +317,8 @@ button.dim {
   text-shadow: 0 1px 2px #000, 0 0 3px #000;
 }
 
-.hp-track {
+.bar-track.hp-track,
+.bar-track.card-track {
   height: 16px;
 }
 

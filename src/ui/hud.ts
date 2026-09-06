@@ -4,6 +4,7 @@ import type { World } from '../entities/world.ts';
 import { fmt } from '../core/format.ts';
 import { PATTERN_INFO } from '../data/waves.ts';
 import { t } from '../data/strings.ts';
+import { BAL } from '../data/balance.ts';
 
 /**
  * The in-run HUD (SPEC §11.1).
@@ -17,6 +18,7 @@ export class Hud {
 
   private readonly hpFill: HTMLDivElement;
   private readonly hpText: HTMLSpanElement;
+  private readonly cardFill: HTMLDivElement;
   private readonly cardText: HTMLSpanElement;
   /** The HP strip, so the camera can keep the tower clear of it. */
   readonly barsEl: HTMLDivElement;
@@ -49,15 +51,16 @@ export class Hud {
     const bars = el('div', 'hud-bars', this.root);
     this.barsEl = bars;
 
-    // Text only: a second bar for something that moves once per wave was more
-    // furniture than information.
-    this.cardText = el('span', 'bar-label card-countdown', bars);
-
     const hpTrack = el('div', 'bar-track hp-track', bars);
     this.hpFill = el('div', 'bar-fill hp-fill', hpTrack);
     // Inside the track, not beside it: the readout belongs to the bar, and
     // outside it the pair cost twice the width for the same information.
     this.hpText = el('span', 'bar-inline', hpTrack);
+
+    // Half the HP bar, right beside it: waves cleared toward the next card.
+    const cardTrack = el('div', 'bar-track card-track', bars);
+    this.cardFill = el('div', 'bar-fill card-fill', cardTrack);
+    this.cardText = el('span', 'bar-inline', cardTrack);
 
     const purse = el('div', 'hud-purse', this.root);
     this.goldText = el('span', 'gold', purse);
@@ -93,8 +96,10 @@ export class Hud {
     // Colour shift below a quarter health: readable at a glance, no text needed.
     setClass(this.hpFill, 'critical', hpPct < 0.25);
 
-    const left = Math.max(0, run.nextCardWave - run.wavesCleared);
-    setText(this.cardText, `${t('hud.cardIn')} ${left}`);
+    const every = Math.max(1, BAL.progression.cardEveryWaves);
+    const done = every - Math.max(0, Math.min(every, run.nextCardWave - run.wavesCleared));
+    setVar(this.cardFill, '--p', ((done / every) * 100).toFixed(1) + '%');
+    setText(this.cardText, `${done}/${every}`);
 
     setText(this.waveText, `${t('hud.wave')} ${Math.max(1, run.wave)}`);
     setText(this.goldText, `🪙 ${fmt(run.gold)}`);
