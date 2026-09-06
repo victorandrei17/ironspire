@@ -32,7 +32,15 @@ export class Hud {
   private bannerT = 0;
   private bossLabel = 'CHEFE';
 
-  constructor(parent: HTMLElement) {
+  constructor(
+    parent: HTMLElement,
+    /**
+     * The solid panel at the bottom of the screen. The readouts live in it
+     * rather than floating over the arena, so nothing walks behind them — and
+     * so the tabs planned for this strip have somewhere to attach.
+     */
+    dock: HTMLElement,
+  ) {
     this.root = el('div', 'hud', parent);
 
     const top = el('div', 'hud-top', this.root);
@@ -46,9 +54,7 @@ export class Hud {
     const bossTrack = el('div', 'bar-track boss-track', this.bossWrap);
     this.bossFill = el('div', 'bar-fill boss-fill', bossTrack);
 
-    // Sits directly above the DANO button, a quarter of the screen wide. The
-    // countdown goes FIRST so the bar itself is the element nearest the thumb.
-    const bars = el('div', 'hud-bars', this.root);
+    const bars = el('div', 'hud-bars', dock);
     this.barsEl = bars;
 
     const hpTrack = el('div', 'bar-track hp-track', bars);
@@ -62,8 +68,9 @@ export class Hud {
     this.cardFill = el('div', 'bar-fill card-fill', cardTrack);
     this.cardText = el('span', 'bar-inline', cardTrack);
 
-    const purse = el('div', 'hud-purse', this.root);
-    this.goldText = el('span', 'gold', purse);
+    // Same row as the bars: the purse used to own a line of its own for one
+    // number, and that line was a line of arena.
+    this.goldText = el('span', 'gold', bars);
   }
 
   /** Named by the boss system when one spawns, so the HUD stays data-free. */

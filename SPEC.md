@@ -502,14 +502,21 @@ ether = floor((waveMax - 60) ^ 0.9 / 3)
 │                        [⚡] │  ← habilidades (lado do polegar)
 │         (torre centrada no  │
 │          vão livre do HUD)  │
-│  🪙 4.7K                    │  ← ouro (a mira mudou para a pausa)
-│  ▓▓ 219/240 ▓░░  ▓ 2/5      │  ← HP (1/4 da tela) + cartas (metade dele)
-│ ┌────┬────┬────┬────┐ ┌──┐  │
-│ │DANO│CAD │ALC │VIDA│ │ON│  │  ← grid 4×2 + trilho: ONDA (timer) …
-│ ├────┼────┼────┼────┤ ├──┤  │
-│ │REG │CRIT│DCRT│OURO│ │MX│  │  … e MAX
-│ └────┴────┴────┴────┘ └──┘  │
+│╔═══════════════════════════╗│  ← DOCK: painel opaco, começa aqui
+│║ ▓▓ 219/240 ▓░ ▓2/5  🪙4.7K║│  ← HP (1/4) + cartas (metade) + ouro
+│║┌────┬────┬────┬────┐ ┌──┐ ║│
+│║│DANO│CAD │ALC │VIDA│ │ON│ ║│  ← grid 4×2 + trilho: ONDA (timer) …
+│║├────┼────┼────┼────┤ ├──┤ ║│
+│║│REG │CRIT│DCRT│OURO│ │MX│ ║│  … e MAX
+│║└────┴────┴────┴────┘ └──┘ ║│
+│╚═══════════════════════════╝│
 └─────────────────────────────┘  ← safe-area bottom
+
+O **dock** é um container real (não um fundo atrás de peças flutuantes): a
+linha de barras e o painel de upgrades são filhos dele, então a caixa termina
+exatamente onde eles terminam. Ele é opaco de propósito — inimigos passando
+atrás dos controles tornavam a parte mais movimentada da tela a mais difícil de
+ler — e é onde as **abas** planejadas para essa faixa vão se encaixar.
 ```
 
 ### 11.2 Regras não negociáveis

@@ -821,6 +821,10 @@ para o canhão não gaguejar), e a torre agora fica centrada no vão livre entre
 botão de pausa e a barra de HP, medido do DOM em vez de uma cópia dos offsets
 do CSS (assim mover um controle não esconde a torre atrás dele).
 
+O HUD terminou a sessão com um **dock**: da barra de HP para baixo tudo virou
+um painel opaco de verdade (container, não fundo), com HP + cartas + ouro numa
+linha só. Fica pronto para receber abas.
+
 **Bloqueado em:** nada novo. Continua valendo o da sessão 1 (aparelho real,
 build nativo, contas de loja).
 

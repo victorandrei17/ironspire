@@ -235,28 +235,43 @@ button.dim {
   background: linear-gradient(90deg, #ff7a5c, #e2564d);
 }
 
-/* --- HP bar and card countdown, just above the thumb zone ---------------- */
+/* --- The dock: everything from the HP bar down ---------------------------- */
+
+/* One opaque panel, not a stack of floating controls. Enemies used to walk
+   visibly behind the readouts and between the upgrade buttons, which made the
+   busiest part of the screen the hardest to read. It is also where the tabs
+   planned for this strip will live, so it is a real container with a flow,
+   not a backdrop. */
+.hud-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 8px calc(var(--safe-r) + 10px) calc(var(--safe-b) + 8px)
+    calc(var(--safe-l) + 10px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(9, 12, 17, 0.96);
+  border-top: 1px solid var(--line);
+  /* Taps on the panel belong to the panel, never to the arena behind it. */
+  pointer-events: auto;
+}
 
 .hud-bars {
-  position: absolute;
-  /* Left-aligned with the upgrade grid so the HP bar sits directly over the
-     DANO button. `.upgrades` uses the same 10px inset. */
-  left: calc(var(--safe-l) + 10px);
-  bottom: calc(var(--safe-b) + 130px);
-  /* HP is a quarter of the screen and the card counter half of that, so the
-     strip is 37.5% plus the gap between them. The 2:1 flex below splits it. */
-  width: calc(37.5% + 6px);
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
+/* HP takes a quarter of the width and the card counter half of that; the purse
+   gets whatever is left, on the same line. */
 .hp-track {
-  flex: 2 1 0;
+  flex: 0 0 25%;
 }
 
 .card-track {
-  flex: 1 1 0;
+  flex: 0 0 12.5%;
 }
 
 .card-fill {
@@ -333,19 +348,9 @@ button.dim {
 
 /* --- Gold and targeting policy -------------------------------------------- */
 
-.hud-purse {
-  position: absolute;
-  left: calc(var(--safe-l) + 14px);
-  right: calc(var(--safe-r) + 14px);
-  /* Above the HP bar, which now occupies the strip right over the buttons. */
-  bottom: calc(var(--safe-b) + 172px);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
 .gold {
+  /* Pushed to the end of the bars row. */
+  margin-left: auto;
   font-size: 1.15rem;
   font-weight: 800;
   color: var(--gold);
@@ -386,10 +391,6 @@ button.dim {
    =========================================================================== */
 
 .upgrades {
-  position: absolute;
-  left: calc(var(--safe-l) + 10px);
-  right: calc(var(--safe-r) + 10px);
-  bottom: calc(var(--safe-b) + 8px);
   display: grid;
   grid-template-columns: 1fr auto;
   grid-template-areas: 'grid rail';
@@ -693,12 +694,6 @@ button.dim {
 
 /* Short screens: pull the HUD in so the arena never gets covered. */
 @media (max-height: 700px) {
-  .hud-bars {
-    bottom: calc(var(--safe-b) + 120px);
-  }
-  .hud-purse {
-    bottom: calc(var(--safe-b) + 158px);
-  }
   .up-btn {
     min-height: 48px;
   }

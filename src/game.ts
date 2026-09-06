@@ -63,6 +63,7 @@ import {
   type OfflineReward,
 } from './systems/meta.ts';
 
+import { el, show } from './ui/dom.ts';
 import { Hud } from './ui/hud.ts';
 import { TalentTree } from './ui/talentTree.ts';
 import { OfflineScreen } from './ui/offlineScreen.ts';
@@ -132,6 +133,7 @@ export class Game {
   private readonly pause: PauseScreen;
   private readonly result: ResultScreen;
   private readonly topBar: TopBar;
+  private readonly dock: HTMLDivElement;
   private readonly talentTree: TalentTree;
   private readonly offlineScreen: OfflineScreen;
   private readonly options: OptionsScreen;
@@ -161,9 +163,13 @@ export class Game {
     this.view = createWorldView(this.world);
     this.camera = new CameraSystem(this.rng);
 
-    this.hud = new Hud(uiRoot);
+    // One solid panel owns everything from the HP bar down. It is a real
+    // container, not a backdrop behind floating pieces: the readouts and the
+    // shop are its children, so the box always ends exactly where they do.
+    this.dock = el('div', 'hud-dock', uiRoot);
+    this.hud = new Hud(uiRoot, this.dock);
     this.panel = new UpgradePanel(
-      uiRoot,
+      this.dock,
       this.run,
       this.world.tower.stats,
       () => this.world.tower.mods.upgradeCostMult,
@@ -364,9 +370,9 @@ export class Game {
    */
   private refocusArena(): void {
     const top = this.topBar.root.getBoundingClientRect();
-    const bars = this.hud.barsEl.getBoundingClientRect();
-    if (top.height <= 0 || bars.height <= 0) return;
-    this.viewport.setVerticalFocus(TOWER_Y, (top.bottom + bars.top) * 0.5);
+    const dock = this.dock.getBoundingClientRect();
+    if (top.height <= 0 || dock.height <= 0) return;
+    this.viewport.setVerticalFocus(TOWER_Y, (top.bottom + dock.top) * 0.5);
   }
 
   // --- scenes ----------------------------------------------------------------
@@ -401,6 +407,9 @@ export class Game {
     const inRun = next === SCENE.Run;
     // The screen stays awake only during a run — never on a menu (SPEC §17.3).
     setScreenAwake(inRun);
+    // The dock carries the readouts, so it follows the HUD rather than the
+    // shop: it stays up behind the card screen and goes down on a menu.
+    show(this.dock, inRun || next === SCENE.CardPick);
     this.hud.setVisible(inRun || next === SCENE.CardPick);
     this.panel.setVisible(inRun);
     this.topBar.setVisible(inRun);
