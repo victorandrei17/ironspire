@@ -199,17 +199,22 @@ O seletor de política fica **dentro da tela de pausa** (§11.1), não no HUD: �
 
 Todo inimigo é um `EnemyDef` puro-dado em `src/data/enemies.ts`.
 
-| id | Nome | Silhueta / cor | HP× | Vel | Dano | Comportamento |
-|----|------|----------------|-----|-----|------|---------------|
-| `grunt` | Lacaio | círculo, verde-musgo | 1.0 | 55 | 4 | Anda reto. O tijolo básico |
-| `runner` | Corredor | triângulo, amarelo | 0.5 | 105 | 3 | Rápido, frágil. Pune cadência baixa |
-| `brute` | Bruto | hexágono grande, vermelho-tijolo | 4.5 | 34 | 14 | Tanque lento. Pune dano baixo |
-| `swarmling` | Enxame | círculo pequeno, cinza-claro | 0.25 | 80 | 2 | Spawna em grupos de 8–14. Pune single-target |
-| `spitter` | Cuspidor | losango, roxo | 1.2 | 45 | 6 (proj.) | Para a 260 u e cospe projétil lento |
-| `warden` | Guardião | quadrado com barra, azul-aço | 2.5 | 40 | 8 | Escudo frontal: −60% de dano vindo do cone de 100° à frente |
-| `mender` | Curandeiro | cruz, verde-claro | 1.5 | 42 | 0 | Cura 3%/s dos aliados num raio de 120. **Prioridade de morte** |
-| `splitter` | Cindido | losango duplo, laranja | 2.0 | 48 | 6 | Ao morrer gera 3 `swarmling` |
-| `wraith` | Espectro | fantasma, ciano translúcido | 1.0 | 70 | 7 | Imune a dano de projétil por 1 s a cada 4 s (fase). Pune build 100% projétil |
+| id | Nome | Silhueta / cor | HP× | Vel | Dano | 🪙 | Comportamento |
+|----|------|----------------|-----|-----|------|----|---------------|
+| `grunt` | Lacaio | círculo, verde-musgo | 1.0 | 55 | 4 | 1 | Anda reto. O tijolo básico |
+| `runner` | Corredor | triângulo, amarelo | 0.5 | 105 | 3 | 1 | Rápido, frágil. Pune cadência baixa |
+| `brute` | Bruto | hexágono grande, vermelho-tijolo | 4.5 | 34 | 14 | 3 | Tanque lento. Pune dano baixo |
+| `swarmling` | Enxame | círculo pequeno, cinza-claro | 0.25 | 80 | 2 | 1 | Spawna em grupos de 8–14. Pune single-target |
+| `spitter` | Cuspidor | losango, roxo | 1.2 | 45 | 6 (proj.) | 2 | Para a 260 u e cospe projétil lento |
+| `warden` | Guardião | quadrado com barra, azul-aço | 2.5 | 40 | 8 | 3 | Escudo frontal: −60% de dano vindo do cone de 100° à frente |
+| `mender` | Curandeiro | cruz, verde-claro | 1.5 | 42 | 0 | 1 | Cura 3%/s dos aliados num raio de 120. **Prioridade de morte** |
+| `splitter` | Cindido | losango duplo, laranja | 2.0 | 48 | 6 | 3 | Ao morrer gera 3 `swarmling` |
+| `wraith` | Espectro | fantasma, ciano translúcido | 1.0 | 70 | 7 | 4 | Imune a dano de projétil por 1 s a cada 4 s (fase). Pune build 100% projétil |
+
+**O ouro é FIXO por arquétipo, não uma curva de wave.** O que um monstro vale é
+propriedade do monstro; tudo que faz a renda crescer — o upgrade OURO in-run, os
+talentos de meta, elites (×8), o bônus de chamada antecipada (×1.15) — multiplica
+por fora. Um Lacaio na wave 90 dá o mesmo que um Lacaio na wave 1.
 
 **Multiplicador HP×** é relativo à curva base da wave (§6.2).
 
@@ -217,9 +222,9 @@ Todo inimigo é um `EnemyDef` puro-dado em `src/data/enemies.ts`.
 
 | id | Wave | Mecânica |
 |----|------|----------|
-| `boss_colossus` | 10, 40, 70… | Alto HP, investida periódica (dash) em direção à torre |
-| `boss_hive` | 20, 50, 80… | Invoca `swarmling` a cada 6 s; morre rápido se focado |
-| `boss_warlock` | 30, 60, 90… | Teleporta, cria zonas de dano no chão, escudo recarregável |
+| `boss_colossus` | 10, 40, 70… | 🪙 20 · Alto HP, investida periódica (dash) em direção à torre |
+| `boss_hive` | 20, 50, 80… | 🪙 30 · Invoca `swarmling` a cada 6 s; morre rápido se focado |
+| `boss_warlock` | 30, 60, 90… | 🪙 40 · Teleporta, cria zonas de dano no chão, escudo recarregável |
 
 Boss tem barra de vida no topo da tela, nome, e um *telegraph* visual de 0,6 s antes de cada ataque especial (círculo/cone vermelho no chão). **Todo ataque de boss é telegrafado.** Sem exceção.
 
@@ -252,13 +257,12 @@ export const BAL = {
     hpBase: 12,         hpGrowth: 1.145,
     hpSoftCapWave: 60,  hpGrowthLate: 1.105,   // curva quebra para não estourar float cedo demais
     speedBase: 1.0,     speedGrowth: 1.004,    speedCap: 1.6,
-    goldBase: 7,        goldGrowth: 1.09,
     gap: 2.0,
     spawnBase: 6,       spawnPerEnemy: 0.03,   spawnWindowCap: 20,
     earlyCallAt: 0.8,
   },
   run:  { startGold: 160 },
-  boss: { every: 10, hpMult: 14, hpMultGrowth: 1.22, goldMult: 25 },
+  boss: { every: 10, hpMult: 14, hpMultGrowth: 1.22 },
   elite:{ startWave: 8, chancePerWave: 0.02, chanceCap: 0.25, hpMult: 6, goldMult: 8 },
 } as const;
 ```
@@ -268,7 +272,6 @@ enemyCount(n)  = min(countCap, floor(countBase + n * countPerWave))
 enemyHp(n)     = hpBase * (n <= 60 ? hpGrowth^(n-1)
                                    : hpGrowth^59 * hpGrowthLate^(n-60))
 enemySpeed(n)  = min(speedCap, speedBase * speedGrowth^(n-1))   // multiplicador da vel. base do arquétipo
-goldDrop(n)    = goldBase * goldGrowth^(n-1)
 bossHpMult(n)  = hpMult * hpMultGrowth^(floor(n/10) - 1)
 ```
 
@@ -320,7 +323,7 @@ O padrão é anunciado por um ícone + texto de 1 s antes da wave ("⟡ INVESTID
 
 | Moeda | Escopo | Fonte | Gasta em |
 |-------|--------|-------|----------|
-| **Ouro** 🪙 | Run (zera ao fim) | Inimigos mortos | Upgrades in-run |
+| **Ouro** 🪙 | Run (zera ao fim) | Inimigos mortos, valor FIXO por arquétipo | Upgrades in-run |
 | **Núcleo** ◈ | Permanente | Fim de run | Árvore de talentos |
 | **Gema** ♦ | Permanente | Bosses, missões, IAP | Continues, slots, cosméticos |
 | **Éter** ✵ | Permanente (pós-rebirth) | Rebirth | Multiplicadores globais |
@@ -331,14 +334,14 @@ O padrão é anunciado por um ícone + texto de 1 s antes da wave ("⟡ INVESTID
 
 | Upgrade | Efeito por nível | Custo base | Crescimento |
 |---------|------------------|-----------|-------------|
-| Dano | +12% do base (aditivo) | 20 | 1.115 |
-| Cadência | +7% do base | 25 | 1.125 |
-| Alcance | +8 unidades | 30 | 1.10 |
-| Vida Máx. | +18 HP | 35 | 1.12 |
-| Regeneração | +0.25 HP/s | 60 | 1.16 |
-| Chance Crít. | +1.2% (cap 60%) | 55 | 1.14 |
-| Dano Crít. | +0.07x | 70 | 1.15 |
-| Ouro | +5% por morte | 60 | 1.16 |
+| Dano | ×1.085 (composto) | 2 | 1.115 |
+| Cadência | +6% do base | 3 | 1.125 |
+| Alcance | +8 unidades | 3 | 1.10 |
+| Vida Máx. | ×1.055 (composto, cura o que adiciona) | 4 | 1.12 |
+| Regeneração | +0.6 HP/s | 6 | 1.16 |
+| Chance Crít. | +1.2% (cap 60%) | 6 | 1.14 |
+| Dano Crít. | +0.07x | 7 | 1.15 |
+| Ouro | +5% por morte | 6 | 1.16 |
 
 ```
 cost(level) = floor(base * growth^level * metaCostMult)

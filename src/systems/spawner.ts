@@ -10,7 +10,6 @@ import {
   enemyHp,
   enemySpeedMul,
   enemyDmgMul,
-  goldDrop,
   eliteChance,
   isBossWave,
   PATTERN,
@@ -57,7 +56,6 @@ export class Spawner {
   private hp = 0;
   private speedMul = 1;
   private dmgMul = 1;
-  private gold = 0;
 
   /** Enemies this wave has released but that are still alive somewhere. */
   released = 0;
@@ -91,7 +89,6 @@ export class Spawner {
     const hp = enemyHp(wave);
     const speedMul = enemySpeedMul(wave);
     const dmgMul = enemyDmgMul(wave);
-    const gold = goldDrop(wave);
     const elite = eliteChance(wave);
 
     fillWeights(this.weights, wave);
@@ -168,7 +165,7 @@ export class Spawner {
       world.splitTemplate.dmg = swarmDef.dmg * dmgMul;
       world.splitTemplate.attackInterval = swarmDef.attackInterval;
       world.splitTemplate.flags = swarmDef.flags;
-      world.splitTemplate.gold = gold * swarmDef.goldMul;
+      world.splitTemplate.gold = swarmDef.gold;
     }
 
     // The window is the wave's authored length and the early-call timer runs
@@ -179,7 +176,6 @@ export class Spawner {
     this.hp = hp;
     this.speedMul = speedMul;
     this.dmgMul = dmgMul;
-    this.gold = gold;
     bus.emit(EV.WaveStart, wave, this.pattern, total);
   }
 
@@ -225,7 +221,7 @@ export class Spawner {
     const elite = (this.schedElite[k] ?? 0) === 1;
 
     let hp = this.hp * def.hpMul;
-    let goldValue = this.gold * def.goldMul;
+    let goldValue = def.gold;
     let scale = def.scale;
     let flags = def.flags;
 
@@ -281,7 +277,7 @@ export class Spawner {
     world.enemies.preferredRange[i] = 0;
     world.enemies.flags[i] = EF.Boss;
     world.enemies.scale[i] = bossDef.scale;
-    world.enemies.goldValue[i] = this.gold * BAL.boss.goldMult;
+    world.enemies.goldValue[i] = bossDef.gold;
     this.bossHandle = world.enemies.handle(i);
     this.released++;
     bus.emit(EV.BossSpawned, this.bossIdx, x, y);

@@ -54,14 +54,11 @@ const BAL = {
   hpGrowth: numField(balanceSrc, 'hpGrowth'),
   hpSoftCapWave: numField(balanceSrc, 'hpSoftCapWave'),
   hpGrowthLate: numField(balanceSrc, 'hpGrowthLate'),
-  goldBase: numField(balanceSrc, 'goldBase'),
-  goldGrowth: numField(balanceSrc, 'goldGrowth'),
   gap: numField(balanceSrc, 'gap'),
   dmgGrowth: numField(balanceSrc, 'dmgGrowth'),
   bossEvery: numField(balanceSrc, 'every'),
   bossHpMult: numField(balanceSrc, 'hpMult'),
   bossHpMultGrowth: numField(balanceSrc, 'hpMultGrowth'),
-  bossGoldMult: numField(balanceSrc, 'goldMult'),
   towerDmg: numField(balanceSrc, 'dmg'),
   towerRate: numField(balanceSrc, 'fireRate'),
   towerHp: numField(balanceSrc, 'hpMax'),
@@ -99,7 +96,80 @@ const enemyHp = (w) =>
   w <= BAL.hpSoftCapWave
     ? BAL.hpBase * BAL.hpGrowth ** (w - 1)
     : BAL.hpBase * BAL.hpGrowth ** (BAL.hpSoftCapWave - 1) * BAL.hpGrowthLate ** (w - BAL.hpSoftCapWave);
-const goldDrop = (w) => BAL.goldBase * BAL.goldGrowth ** (w - 1);
+/**
+ * What a wave is worth, from the enemy table and the composition weights.
+ *
+ * Gold is FLAT per archetype now — there is no wave curve to read a number off
+ * — so income is the wave's size times its mix, and the model has to know the
+ * mix or it would report an economy the game does not have.
+ */
+const enemiesSrc = readTs('src/data/enemies.ts');
+const wavesSrc = readTs('src/data/waves.ts');
+
+const ENEMY_GOLD = new Map(
+  [...enemiesSrc.matchAll(/id: '([a-z_]+)',[\s\S]*?gold: ([0-9.]+),/g)].map((m) => [
+    m[1],
+    Number(m[2]),
+  ]),
+);
+
+const BOSS_GOLD = [...readTs('src/data/bosses.ts').matchAll(/gold: ([0-9.]+),/g)].map((m) =>
+  Number(m[1]),
+);
+
+/** `[wave, weight]` anchors per archetype, mirroring WAVE_WEIGHTS. */
+const WEIGHTS = new Map();
+{
+  const block = wavesSrc.slice(
+    wavesSrc.indexOf('export const WAVE_WEIGHTS'),
+    wavesSrc.indexOf('};', wavesSrc.indexOf('export const WAVE_WEIGHTS')),
+  );
+  for (const m of block.matchAll(/^ {2}([a-z_]+): \[([\s\S]*?)^ {2}\],/gm)) {
+    const anchors = [...m[2].matchAll(/\[\s*([0-9.]+),\s*([0-9.]+)\s*\]/g)].map((a) => [
+      Number(a[1]),
+      Number(a[2]),
+    ]);
+    if (anchors.length > 0) WEIGHTS.set(m[1], anchors);
+  }
+}
+if (WEIGHTS.size !== ENEMY_GOLD.size) {
+  console.error(
+    `sim-balance: parsed ${WEIGHTS.size} weight rows for ${ENEMY_GOLD.size} archetypes. Tables changed?`,
+  );
+  process.exit(2);
+}
+
+/** Mirror of `weightAt` in src/data/waves.ts. */
+function weightAt(id, wave) {
+  const anchors = WEIGHTS.get(id) ?? [];
+  if (anchors.length === 0) return 0;
+  if (wave <= anchors[0][0]) return anchors[0][1];
+  for (let i = 1; i < anchors.length; i++) {
+    const [aw, av] = anchors[i - 1];
+    const [bw, bv] = anchors[i];
+    if (wave <= bw) return av + (bv - av) * ((wave - aw) / (bw - aw));
+  }
+  return anchors[anchors.length - 1][1];
+}
+
+/** Average gold per monster on a wave, weighted by composition. */
+function avgGold(wave) {
+  let weighted = 0;
+  let total = 0;
+  for (const [id, gold] of ENEMY_GOLD) {
+    const w = weightAt(id, wave);
+    if (w <= 0) continue;
+    weighted += w * gold;
+    total += w;
+  }
+  return total > 0 ? weighted / total : 0;
+}
+
+/** Gold for the boss of a wave: fixed per boss, cycling through the table. */
+function bossGold(wave) {
+  const n = Math.max(1, Math.floor(wave / BAL.bossEvery));
+  return BOSS_GOLD[(n - 1) % BOSS_GOLD.length] ?? 0;
+}
 const isBossWave = (w) => w % BAL.bossEvery === 0;
 /**
  * Mirror of `spawnWindow` in src/data/waves.ts, at the average pattern stretch
@@ -200,6 +270,7 @@ function makeState() {
     cardHpPct: 0,
     metaDmgMul: 1,
     metaHpMul: 1,
+    metaGoldMul: 1,
   };
 }
 
@@ -229,7 +300,7 @@ function dps(state) {
 
 /** Gold multiplier: base 1 plus the OURO upgrade's additive levels. */
 function goldMul(state) {
-  return 1 + addOf(state, 'gold');
+  return (1 + addOf(state, 'gold')) * state.metaGoldMul;
 }
 
 function maxHp(state) {
@@ -379,6 +450,9 @@ function simulateRun(seed, meta) {
   // every prestiged run starting at a fraction of its own health bar.
   state.metaDmgMul = meta.dmgMul;
   state.metaHpMul = meta.hpMul;
+  // Ether and the Fortune branch both feed GoldMult, so meta buys income as
+  // well as power. Ignoring it understated every scenario but run one.
+  state.metaGoldMul = meta.goldMul ?? 1;
   state.gold = BAL.startGold + meta.startGold;
   state.hpMax = maxHp(state);
   state.hp = state.hpMax;
@@ -398,7 +472,7 @@ function simulateRun(seed, meta) {
 
     // Rewards. Every coin lands: gold is credited on death, so unlike the
     // dropped-pickup model nothing is lost to the arena floor.
-    state.gold += count * goldDrop(wave) * goldMul(state) * (boss ? BAL.bossGoldMult / 8 : 1);
+    state.gold += (count * avgGold(wave) + (boss ? bossGold(wave) : 0)) * goldMul(state);
     if (wave % BAL.cardEveryWaves === 0) {
       state.level++;
       // A card pick, averaged: the offer is 60% commons, so the expected pick
@@ -479,18 +553,18 @@ function runPolicy(policy, meta) {
 }
 
 const SCENARIOS = [
-  { name: 'run 1 (sem meta)', meta: { dmgMul: 1, hpMul: 1, startGold: 0 }, target: [12, 20] },
+  { name: 'run 1 (sem meta)', meta: { dmgMul: 1, hpMul: 1, goldMul: 1, startGold: 0 }, target: [12, 20] },
   {
     name: 'apos ~1h de meta',
     // Roughly what an hour of cores buys: a few ranks of the cheap War and
     // Fortress nodes, plus some starting gold from Fortune.
-    meta: { dmgMul: 1.35, hpMul: 1.4, startGold: 100 },
+    meta: { dmgMul: 1.35, hpMul: 1.4, goldMul: 1.35, startGold: 100 },
     target: [35, 50],
   },
   {
     name: 'pos-prestigio',
     // A handful of rebirths worth of compounding ether.
-    meta: { dmgMul: 3.0, hpMul: 2.5, startGold: 400 },
+    meta: { dmgMul: 3.0, hpMul: 2.5, goldMul: 3.0, startGold: 400 },
     target: [60, 140],
   },
 ];

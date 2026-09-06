@@ -825,6 +825,35 @@ O HUD terminou a sessão com um **dock**: da barra de HP para baixo tudo virou
 um painel opaco de verdade (container, não fundo), com HP + cartas + ouro numa
 linha só. Fica pronto para receber abas.
 
+**Ouro fixo por monstro** (pedido do dono): 1/1/1/3/2/3/1/3/4 nos arquétipos e
+20/30/40 nos chefes, sem curva de wave. Os preços da loja desceram junto —
+`costBase` de 20-70 para 2-7 — porque as tabelas estavam calibradas contra um
+ouro ~10× maior; isso é escala, não decisão de balanceamento.
+
+**O portão de balanceamento ficou VERMELHO nas faixas de meta, e fica assim de
+propósito.** Com drop fixo, a renda por wave passa a crescer só com o TAMANHO e
+a composição da wave — e as duas travam no `countCap` (90). O HP do inimigo
+continua exponencial. Medido:
+
+```
+                          alvo      antes     agora    build real
+  run 1 (sem meta)        12–20        15        20        12 ✅
+  após ~1h de meta        35–50        45        30         —  ✗
+  pós-prestígio          60–140       105        55         —  ✗
+```
+
+A compressão é estrutural: drop fixo + custo geométrico + HP exponencial não
+coexistem. O que devolve a inclinação é exatamente o que o dono disse que virá
+("o que vai alterar o drop de gold vai ser os upgrades ingame e outgame"): um
+multiplicador de ouro que cresça com a meta. Medi o que-e-se: com meta ×2 (1h) e
+×8 (prestígio) no ouro, a faixa pós-prestígio volta para 60. Enquanto essa
+progressão não existir, o portão fica vermelho e isso é o relatório honesto do
+estado, não um bug para contornar.
+
+O simulador aprendeu a economia nova: média ponderada pela composição da wave,
+ouro fixo por chefe, e o multiplicador de ouro da meta — que ele ignorava, e por
+isso subestimava todo cenário que não fosse a run 1.
+
 **Bloqueado em:** nada novo. Continua valendo o da sessão 1 (aparelho real,
 build nativo, contas de loja).
 

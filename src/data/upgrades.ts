@@ -55,7 +55,7 @@ export const UPGRADES = [
     stat: ST.Dmg,
     kind: 'mult',
     perLevel: 1.085,
-    costBase: 20,
+    costBase: 2,
     costGrowth: 1.115,
     maxLevel: 0,
     blurb: '×1.075',
@@ -67,7 +67,7 @@ export const UPGRADES = [
     stat: ST.FireRate,
     kind: 'pctOfBase',
     perLevel: 0.06,
-    costBase: 25,
+    costBase: 3,
     costGrowth: 1.125,
     maxLevel: 0,
     blurb: '+6%',
@@ -79,7 +79,7 @@ export const UPGRADES = [
     stat: ST.Range,
     kind: 'flat',
     perLevel: 8,
-    costBase: 30,
+    costBase: 3,
     costGrowth: 1.1,
     maxLevel: 0,
     blurb: '+8',
@@ -91,7 +91,7 @@ export const UPGRADES = [
     stat: ST.HpMax,
     kind: 'mult',
     perLevel: 1.055,
-    costBase: 35,
+    costBase: 4,
     costGrowth: 1.12,
     maxLevel: 0,
     blurb: '×1.055',
@@ -105,7 +105,7 @@ export const UPGRADES = [
     // so it scales with the Vida upgrade instead of becoming irrelevant.
     kind: 'flat',
     perLevel: 0.6,
-    costBase: 60,
+    costBase: 6,
     costGrowth: 1.16,
     maxLevel: 0,
     blurb: '+0.6/s',
@@ -117,7 +117,7 @@ export const UPGRADES = [
     stat: ST.CritChance,
     kind: 'flat',
     perLevel: 0.012,
-    costBase: 55,
+    costBase: 6,
     costGrowth: 1.14,
     // Crit chance is capped at 60% in TowerStats; the level cap keeps the
     // button from staying buyable long after it stopped doing anything.
@@ -131,7 +131,7 @@ export const UPGRADES = [
     stat: ST.CritMult,
     kind: 'flat',
     perLevel: 0.07,
-    costBase: 70,
+    costBase: 7,
     costGrowth: 1.15,
     maxLevel: 0,
     blurb: '+0.07x',
@@ -148,7 +148,7 @@ export const UPGRADES = [
      */
     kind: 'flat',
     perLevel: 0.05,
-    costBase: 60,
+    costBase: 6,
     costGrowth: 1.16,
     maxLevel: 0,
     blurb: '+5%',
@@ -157,6 +157,13 @@ export const UPGRADES = [
 
 export type UpgradeId = (typeof UPGRADES)[number]['id'];
 export const UPGRADE_COUNT = UPGRADES.length;
+
+/**
+ * PRICES ARE ~1/7 OF WHAT THEY WERE, and that is bookkeeping rather than a
+ * balance change: monsters used to drop a wave curve (7 gold on wave 1, 240 on
+ * wave 50) and now drop a flat 1-4. The whole ladder had to come down to the
+ * scale the drops live on, or the first upgrade would have cost three waves.
+ */
 
 /** Cost of the NEXT level when the player already owns `level` of them. */
 export function upgradeCost(def: UpgradeDef, level: number, costMult = 1): number {

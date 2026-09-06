@@ -70,14 +70,6 @@ export const BAL = {
     speedBase: 1.0,
     speedGrowth: 1.004,
     speedCap: 1.6,
-    /** RAISED from 3 with the XP removal: see `run.startGold`. */
-    goldBase: 7,
-    /**
-     * Deliberately BELOW the upgrade cost growth (1.115). That gap is what
-     * creates the wall: with income growing as fast as cost, affordable levels
-     * would grow without bound and the player would never fall behind.
-     */
-    goldGrowth: 1.09,
     gap: 2.0,
     /**
      * Enemy damage multiplier per wave. SPEC §6.2 had no damage curve at all,
@@ -122,7 +114,6 @@ export const BAL = {
      * with the player instead of being cleared once and forgotten.
      */
     hpMultGrowth: 1.22,
-    goldMult: 25,
   },
 
   elite: {
@@ -166,8 +157,8 @@ export const BAL = {
      * carried by free card power in waves 1-4, and without it the player spent
      * the first three waves unable to afford anything at all. A flat purse
      * fixes exactly that window — by wave 15 it is a rounding error, so unlike
-     * a bigger `goldBase` it does not inflate the late game or hand the
-     * optimiser a snowball.
+     * richer monsters it does not inflate the late game or hand the optimiser a
+     * snowball.
      */
     startGold: 160,
   },

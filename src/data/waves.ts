@@ -1,6 +1,6 @@
 import { BAL } from './balance.ts';
 import type { EnemyId } from './enemies.ts';
-import { ENEMY_ORDER } from './enemies.ts';
+import { ENEMIES, ENEMY_ORDER } from './enemies.ts';
 
 /**
  * Wave composition and difficulty curves (SPEC §6).
@@ -124,8 +124,25 @@ export function enemyDmgMul(wave: number): number {
   return Math.pow(BAL.wave.dmgGrowth, wave - 1);
 }
 
-export function goldDrop(wave: number): number {
-  return BAL.wave.goldBase * Math.pow(BAL.wave.goldGrowth, wave - 1);
+/**
+ * Gold a wave is worth, before any multiplier (SPEC §7.1).
+ *
+ * There is no wave gold CURVE any more: each archetype carries a flat value and
+ * the wave's worth is just its composition. Income therefore grows with the
+ * wave's size and its mix, and stops growing when `countCap` does — which is
+ * exactly what makes the wall a wall.
+ */
+export function waveGold(wave: number): number {
+  let weighted = 0;
+  let total = 0;
+  for (const id of ENEMY_ORDER) {
+    const w = weightAt(id, wave);
+    if (w <= 0) continue;
+    weighted += w * ENEMIES[id].gold;
+    total += w;
+  }
+  const avg = total > 0 ? weighted / total : 0;
+  return enemyCount(wave) * avg;
 }
 
 /** HP multiplier for the boss of `wave`, compounding per boss (SPEC §6.3). */

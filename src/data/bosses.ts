@@ -49,6 +49,8 @@ export type BossDef = {
   readonly attackInterval: number;
   readonly radius: number;
   readonly scale: number;
+  /** Gold dropped, flat — and the same on a repeat: no boss is meant to repeat. */
+  readonly gold: number;
   readonly actions: readonly BossAction[];
 };
 
@@ -64,6 +66,7 @@ export const BOSSES = [
     attackInterval: 1.5,
     radius: 46,
     scale: 1.0,
+    gold: 20,
     actions: [
       // A long telegraph on a high-damage charge: the player is meant to have
       // time to fire an ability, not to dodge (the tower cannot move).
@@ -83,6 +86,7 @@ export const BOSSES = [
     attackInterval: 1.4,
     radius: 44,
     scale: 1.0,
+    gold: 30,
     actions: [{ kind: BOSS_ACTION.Summon, cooldown: 6, telegraph: 0.6, power: 6, duration: 0 }],
   },
   {
@@ -96,6 +100,7 @@ export const BOSSES = [
     attackInterval: 1.6,
     radius: 42,
     scale: 1.0,
+    gold: 40,
     actions: [
       { kind: BOSS_ACTION.Teleport, cooldown: 9, telegraph: 0.6, power: 240, duration: 0 },
       { kind: BOSS_ACTION.GroundZone, cooldown: 5, telegraph: 0.7, power: 90, duration: 4 },

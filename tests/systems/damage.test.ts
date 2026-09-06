@@ -232,6 +232,18 @@ describe('death path', () => {
     expect(d.value[found]).toBe(12);
   });
 
+  it('drops the same gold whatever the wave: the value is the monster', () => {
+    const def = ENEMY_LIST[enemyIndex('grunt' as never)]!;
+    for (const wave of [1, 50, 200]) {
+      const { world: w2, run: r2, rng: g2 } = makeWorld();
+      r2.wave = wave;
+      const i = spawnEnemy(w2, 'grunt', 10);
+      w2.enemies.goldValue[i] = def.gold;
+      killEnemy(w2, r2, i, g2);
+      expect(r2.gold).toBe(def.gold);
+    }
+  });
+
   it('scales gold by the wave bonus and the gold multiplier', () => {
     const { world, run, rng } = makeWorld();
     run.waveGoldBonus = 1.15;

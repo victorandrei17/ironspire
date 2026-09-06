@@ -104,6 +104,24 @@ describe('wave pacing (SPEC §6.1)', () => {
     expect(s.waves.callEarly(s.world, s.run, s.spawner)).toBe(false);
   });
 
+  it('a boss is worth its own fixed gold, on every appearance', () => {
+    const s1 = setup();
+    const s2 = setup();
+    const goldOf = (s: ReturnType<typeof setup>, wave: number): number => {
+      s.spawner.beginWave(s.world, s.run.seed, wave);
+      s.spawner.update(s.world, 0.001);
+      const e = s.world.enemies;
+      for (let i = 0; i < e.count; i++) {
+        if (e.alive[i] === 1 && ((e.flags[i] ?? 0) & EF.Boss) !== 0) return e.goldValue[i] ?? 0;
+      }
+      return -1;
+    };
+    // Wave 10 and wave 40 are the same boss; no boss is meant to repeat, so its
+    // purse does not change when the cycle comes back around.
+    expect(goldOf(s1, 10)).toBeGreaterThan(0);
+    expect(goldOf(s2, 40)).toBe(goldOf(s1, 10));
+  });
+
   it('the last monster of a wave spawns exactly at the end of its window', () => {
     const s = setup();
     tick(s, BAL.wave.gap + 0.01);

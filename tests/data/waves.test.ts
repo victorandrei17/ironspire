@@ -5,7 +5,7 @@ import {
   enemyCount,
   enemyHp,
   enemySpeedMul,
-  goldDrop,
+  waveGold,
   isBossWave,
   spawnWindow,
   PATTERN,
@@ -15,12 +15,11 @@ import {
 } from '../../src/data/waves.ts';
 import { ENEMY_ORDER } from '../../src/data/enemies.ts';
 import { BAL } from '../../src/data/balance.ts';
-import { UPGRADES } from '../../src/data/upgrades.ts';
 
 describe('wave curves (SPEC §6.2)', () => {
   it('every curve is finite and non-negative to wave 500', () => {
     for (let w = 1; w <= 500; w++) {
-      for (const v of [enemyCount(w), enemyHp(w), enemySpeedMul(w), goldDrop(w)]) {
+      for (const v of [enemyCount(w), enemyHp(w), enemySpeedMul(w), waveGold(w)]) {
         expect(Number.isFinite(v)).toBe(true);
         expect(v).toBeGreaterThanOrEqual(0);
       }
@@ -31,7 +30,7 @@ describe('wave curves (SPEC §6.2)', () => {
     for (let w = 2; w <= 500; w++) {
       expect(enemyCount(w)).toBeGreaterThanOrEqual(enemyCount(w - 1));
       expect(enemyHp(w)).toBeGreaterThan(enemyHp(w - 1));
-      expect(goldDrop(w)).toBeGreaterThan(goldDrop(w - 1));
+      expect(waveGold(w)).toBeGreaterThanOrEqual(waveGold(w - 1));
       expect(enemySpeedMul(w)).toBeGreaterThanOrEqual(enemySpeedMul(w - 1));
     }
   });
@@ -60,18 +59,17 @@ describe('wave curves (SPEC §6.2)', () => {
     expect(after / before).toBeCloseTo(BAL.wave.hpGrowthLate, 6);
   });
 
-  it('the late curve outruns a compounding upgrade, so a wall exists', () => {
-    const late = enemyHp(200) / enemyHp(199);
-    // Income and cost are both geometric, so upgrade levels grow linearly and
-    // the compounding damage upgrade turns into an exponential in waves. The
-    // late curve has to beat that exponent or no wall exists at all — which is
-    // exactly what `npm run balance` caught when this curve was the flatter of
-    // the two. The margin is the ordinary player's share of the fight.
-    const damage = UPGRADES.find((u) => u.id === 'damage');
-    expect(damage?.kind).toBe('mult');
-    const levelsPerWave = Math.log(BAL.wave.goldGrowth) / Math.log(damage!.costGrowth);
-    const playerGrowth = Math.pow(damage!.perLevel, levelsPerWave);
-    expect(late).toBeGreaterThan(playerGrowth);
+  it('a wave can only ever pay so much, which is what makes the wall', () => {
+    // Gold is flat per monster now, so a wave is worth its composition times
+    // its size — and both are capped. Enemy HP is not, so the player's income
+    // stops growing long before the enemies stop.
+    const capped = waveGold(500);
+    expect(waveGold(1000)).toBeCloseTo(capped, 6);
+    expect(enemyHp(1000)).toBeGreaterThan(enemyHp(500) * 10);
+
+    // And the mix still gets richer on the way there: a late wave is worth
+    // more per monster than an opening one.
+    expect(waveGold(40) / enemyCount(40)).toBeGreaterThan(waveGold(1) / enemyCount(1));
   });
 
   it('HP at wave 500 is far below float overflow', () => {

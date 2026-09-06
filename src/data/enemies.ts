@@ -23,8 +23,15 @@ export type EnemyDef = {
   readonly flags: number;
   /** Ranged types stop here instead of closing to contact. 0 = melee. */
   readonly preferredRange: number;
-  /** Multiplier on the wave gold curve. */
-  readonly goldMul: number;
+  /**
+   * Gold dropped, flat.
+   *
+   * NOT a multiplier on a wave curve any more: what a monster is worth is a
+   * property of the monster, and everything that grows income — the in-run OURO
+   * upgrade, meta talents, elites, the early-call bonus — multiplies it from
+   * the outside. A Lacaio on wave 90 drops what a Lacaio drops.
+   */
+  readonly gold: number;
 };
 
 export const ENEMIES = {
@@ -40,7 +47,7 @@ export const ENEMIES = {
     scale: 1,
     flags: 0,
     preferredRange: 0,
-    goldMul: 1,
+    gold: 1,
   },
   runner: {
     id: 'runner',
@@ -56,7 +63,7 @@ export const ENEMIES = {
     scale: 1,
     flags: 0,
     preferredRange: 0,
-    goldMul: 1,
+    gold: 1,
   },
   brute: {
     id: 'brute',
@@ -70,7 +77,7 @@ export const ENEMIES = {
     scale: 1,
     flags: 0,
     preferredRange: 0,
-    goldMul: 2.2,
+    gold: 3,
   },
   swarmling: {
     id: 'swarmling',
@@ -84,7 +91,7 @@ export const ENEMIES = {
     scale: 1,
     flags: 0,
     preferredRange: 0,
-    goldMul: 0.4,
+    gold: 1,
   },
   spitter: {
     id: 'spitter',
@@ -98,7 +105,7 @@ export const ENEMIES = {
     scale: 1,
     flags: EF.Ranged,
     preferredRange: 260,
-    goldMul: 1.3,
+    gold: 2,
   },
   warden: {
     id: 'warden',
@@ -112,7 +119,7 @@ export const ENEMIES = {
     scale: 1,
     flags: EF.Shielded,
     preferredRange: 0,
-    goldMul: 1.6,
+    gold: 3,
   },
   mender: {
     id: 'mender',
@@ -127,7 +134,7 @@ export const ENEMIES = {
     flags: EF.Healer,
     // Hangs back at the edge of its heal radius so killing it takes a decision.
     preferredRange: 200,
-    goldMul: 1.5,
+    gold: 1,
   },
   splitter: {
     id: 'splitter',
@@ -141,7 +148,7 @@ export const ENEMIES = {
     scale: 1,
     flags: EF.Splits,
     preferredRange: 0,
-    goldMul: 1.4,
+    gold: 3,
   },
   wraith: {
     id: 'wraith',
@@ -155,7 +162,7 @@ export const ENEMIES = {
     scale: 1,
     flags: EF.Phasing,
     preferredRange: 0,
-    goldMul: 1.3,
+    gold: 4,
   },
 } as const satisfies Record<string, EnemyDef>;
 
