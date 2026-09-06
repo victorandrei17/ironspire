@@ -65,7 +65,9 @@ export class WaveSystem {
       // Counted here and nowhere else: `progression.ts` pays out card offers on
       // this number, so a wave abandoned by a retreat must not count.
       run.wavesCleared++;
-      bus.emit(EV.WaveEnd, run.wave);
+      // The second argument separates "the last enemy died" from "the player
+      // walked away from it": only the first is a wave CLEARED.
+      bus.emit(EV.WaveEnd, run.wave, 1);
       this.phase = WAVE_PHASE.Gap;
       this.gapLeft = BAL.wave.gap;
       this.earlyCalled = false;
@@ -83,7 +85,7 @@ export class WaveSystem {
       // one. It still counts: card offers ride on this number, and a player who
       // always calls early would otherwise never see a card.
       run.wavesCleared++;
-      bus.emit(EV.WaveEnd, run.wave);
+      bus.emit(EV.WaveEnd, run.wave, 0);
     }
     this.startNext(world, run, spawner);
     return true;

@@ -265,7 +265,8 @@ export class Game {
     bus.on(EV.TowerDied, () => this.endRun(true));
     // A finished wave is the natural autosave point: cheap, and it bounds how
     // much progress a kill -9 can cost (SPEC §15.3).
-    bus.on(EV.WaveEnd, () => {
+    bus.on(EV.WaveEnd, (wave, cleared) => {
+      if (cleared === 1) this.hud.waveCleared(wave);
       this.snapshotRun();
       this.saves.flush();
     });

@@ -13,6 +13,7 @@ export const STRINGS_PT = {
   'menu.tagline': 'Fique. Fique mais forte que elas.',
 
   'hud.wave': 'ONDA',
+  'hud.cleared': 'CONCLUÍDA',
   'hud.level': 'Nv.',
   'hud.nextWave': 'PRÓXIMA ONDA',
   'hud.nextWaveShort': 'ONDA',
@@ -98,6 +99,7 @@ export const STRINGS_EN: Partial<Record<StringKey, string>> = {
   'menu.tagline': 'Stand. Outlast them.',
 
   'hud.wave': 'WAVE',
+  'hud.cleared': 'CLEARED',
   'hud.level': 'Lv.',
   'hud.nextWave': 'NEXT WAVE',
   'hud.nextWaveShort': 'WAVE',

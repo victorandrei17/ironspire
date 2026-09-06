@@ -8,6 +8,7 @@ import { CARD_COUNT } from '../../src/data/cards.ts';
 import { BAL } from '../../src/data/balance.ts';
 import { enemyCount, isBossWave, spawnWindow } from '../../src/data/waves.ts';
 import { EF } from '../../src/data/enemyFlags.ts';
+import { bus, EV } from '../../src/core/events.ts';
 import { FIXED_DT, R_SPAWN } from '../../src/core/constants.ts';
 import {
   updateProgression,
@@ -156,6 +157,28 @@ describe('wave pacing (SPEC §6.1)', () => {
     // And it tops out BEFORE the wave has finished spawning, which is the
     // whole point: the call overlaps the tail of this wave with the next.
     expect(s.spawner.elapsedSec).toBeLessThan(s.spawner.scheduleDuration);
+  });
+
+  it('reports whether a wave ENDED or was walked away from', () => {
+    const seen: number[] = [];
+    const listener = (_wave: number, cleared: number): void => void seen.push(cleared);
+    bus.on(EV.WaveEnd, listener);
+    try {
+      const s = setup();
+      tick(s, BAL.wave.gap + 0.1);
+      tickUntilGap(s);
+      // Last enemy died: cleared.
+      expect(seen).toEqual([1]);
+
+      // Called early with the wave still running: ended, but not cleared. The
+      // HUD hangs its "ONDA N CONCLUÍDA" on this flag.
+      // Past the gap AND past the unlock point of the wave that follows it.
+      tick(s, BAL.wave.gap + s.spawner.scheduleDuration * BAL.wave.earlyCallAt + 0.2);
+      expect(s.waves.callEarly(s.world, s.run, s.spawner)).toBe(true);
+      expect(seen).toEqual([1, 0]);
+    } finally {
+      bus.off(EV.WaveEnd, listener);
+    }
   });
 
   it('calling early mid-wave advances the wave and still owes a card', () => {

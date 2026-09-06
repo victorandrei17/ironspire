@@ -179,6 +179,43 @@ button.dim {
   background: rgba(21, 26, 35, 0.8);
 }
 
+.hud-cleared {
+  position: absolute;
+  /* Below the speed/pause cluster: full width and one line, with nothing to
+     collide with. The boss bar shares this strip but is never up at the same
+     moment — a wave ends with the arena empty. */
+  top: calc(var(--safe-t) + 62px);
+  left: 0;
+  right: 0;
+  white-space: nowrap;
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  font-size: 1rem;
+  color: var(--gold);
+  text-shadow: 0 2px 8px #000;
+  /* One second, in and out. Long enough to read the number, short enough that
+     it is gone before the next wave's banner arrives. */
+  animation: cleared-fade 1s ease-out;
+}
+
+@keyframes cleared-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  18% {
+    opacity: 1;
+    transform: none;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .hud-banner {
   position: absolute;
   top: calc(var(--safe-t) + 40px);

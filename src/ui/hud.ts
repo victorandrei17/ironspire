@@ -25,11 +25,13 @@ export class Hud {
   private readonly waveText: HTMLSpanElement;
   private readonly goldText: HTMLSpanElement;
   private readonly bannerEl: HTMLDivElement;
+  private readonly clearedEl: HTMLDivElement;
   private readonly bossWrap: HTMLDivElement;
   private readonly bossFill: HTMLDivElement;
   private readonly bossName: HTMLSpanElement;
 
   private bannerT = 0;
+  private clearedT = 0;
   private bossLabel = 'CHEFE';
 
   constructor(
@@ -47,6 +49,8 @@ export class Hud {
     this.waveText = el('span', 'hud-wave', top);
     this.bannerEl = el('div', 'hud-banner', this.root);
     this.bannerEl.hidden = true;
+    this.clearedEl = el('div', 'hud-cleared', this.root);
+    this.clearedEl.hidden = true;
 
     this.bossWrap = el('div', 'boss-bar', this.root);
     this.bossWrap.hidden = true;
@@ -79,6 +83,21 @@ export class Hud {
   }
 
   /** Announces the wave pattern for a beat before the wave lands (SPEC §6.4). */
+  /**
+   * "ONDA 7 CONCLUÍDA" — the beat between the last kill and the next wave.
+   *
+   * Toggling `hidden` restarts the CSS fade, so two waves cleared back to back
+   * each get their own animation instead of the second one inheriting a
+   * half-faded element.
+   */
+  waveCleared(wave: number): void {
+    setText(this.clearedEl, `${t('hud.wave')} ${wave} ${t('hud.cleared')}`);
+    show(this.clearedEl, false);
+    void this.clearedEl.offsetWidth;
+    show(this.clearedEl, true);
+    this.clearedT = 1;
+  }
+
   banner(patternIdx: number, wave: number): void {
     const info = PATTERN_INFO[patternIdx] ?? PATTERN_INFO[0];
     setText(this.bannerEl, `${info.icon}  ${t('hud.wave')} ${wave} · ${info.name}`);
@@ -87,6 +106,11 @@ export class Hud {
   }
 
   update(run: RunState, world: World, dt: number): void {
+    if (this.clearedT > 0) {
+      this.clearedT -= dt;
+      if (this.clearedT <= 0) show(this.clearedEl, false);
+    }
+
     if (this.bannerT > 0) {
       this.bannerT -= dt;
       if (this.bannerT <= 0) show(this.bannerEl, false);

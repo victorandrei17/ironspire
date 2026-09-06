@@ -233,7 +233,7 @@ describe('death path', () => {
   });
 
   it('drops the same gold whatever the wave: the value is the monster', () => {
-    const def = ENEMY_LIST[enemyIndex('grunt' as never)]!;
+    const def = ENEMY_LIST[enemyIndex('grunt')]!;
     for (const wave of [1, 50, 200]) {
       const { world: w2, run: r2, rng: g2 } = makeWorld();
       r2.wave = wave;
